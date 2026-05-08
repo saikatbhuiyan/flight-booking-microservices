@@ -1,6 +1,7 @@
 import { Module, Global, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { connect } from 'amqplib';
+import { resolveRabbitMqUrl } from '../utils';
 
 @Global()
 @Module({})
@@ -8,7 +9,7 @@ export class RmqSetup {
   private static readonly logger = new Logger('RmqSetup');
 
   static async setupQueues(configService: ConfigService, serviceName: string, retryDelayMs = 10000, maxRetries = 3) {
-    const rabbitmqUrl = configService.get<string>('RABBITMQ_URL');
+    const rabbitmqUrl = resolveRabbitMqUrl(configService.get<string>('RABBITMQ_URL'));
 
     let connection;
     let retries = 0;

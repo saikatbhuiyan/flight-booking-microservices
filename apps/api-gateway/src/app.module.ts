@@ -22,6 +22,7 @@ import {
   winstonLoggerConfig,
   LoggingInterceptor,
   JwtAuthGuard,
+  resolveRabbitMqUrl,
 } from '@app/common';
 import { WinstonModule } from 'nest-winston';
 import { TerminusModule } from '@nestjs/terminus';
@@ -62,7 +63,7 @@ import { RateLimiterModule } from '@app/rate-limiter';
         useFactory: (configService: ConfigService) => ({
           transport: Transport.RMQ,
           options: {
-            urls: [configService.get<string>('RABBITMQ_URL')],
+            urls: [resolveRabbitMqUrl(configService.get<string>('RABBITMQ_URL'))],
             queue: 'auth_queue',
             queueOptions: {
               durable: true,
@@ -82,7 +83,7 @@ import { RateLimiterModule } from '@app/rate-limiter';
         useFactory: (configService: ConfigService) => ({
           transport: Transport.RMQ,
           options: {
-            urls: [configService.get<string>('RABBITMQ_URL')],
+            urls: [resolveRabbitMqUrl(configService.get<string>('RABBITMQ_URL'))],
             queue: 'flight_queue',
             queueOptions: {
               durable: true,
@@ -102,7 +103,7 @@ import { RateLimiterModule } from '@app/rate-limiter';
         useFactory: (configService: ConfigService) => ({
           transport: Transport.RMQ,
           options: {
-            urls: [configService.get<string>('RABBITMQ_URL')],
+            urls: [resolveRabbitMqUrl(configService.get<string>('RABBITMQ_URL'))],
             queue: 'booking_queue',
             queueOptions: {
               durable: true,

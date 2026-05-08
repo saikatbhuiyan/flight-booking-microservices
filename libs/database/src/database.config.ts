@@ -1,5 +1,16 @@
 import { ConfigService } from '@nestjs/config';
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
+import { existsSync } from 'fs';
+
+function resolveDatabaseHost(host: string | undefined): string {
+  const resolvedHost = host || '127.0.0.1';
+
+  if (resolvedHost !== 'postgres') {
+    return resolvedHost;
+  }
+
+  return existsSync('/.dockerenv') ? resolvedHost : '127.0.0.1';
+}
 
 export const getDatabaseConfig = (
   configService: ConfigService,
@@ -7,7 +18,7 @@ export const getDatabaseConfig = (
   migrations: any[] = [],
 ): TypeOrmModuleOptions => ({
   type: 'postgres',
-  host: configService.get<string>('DB_HOST'),
+  host: resolveDatabaseHost(configService.get<string>('DB_HOST')),
   port: configService.get<number>('DB_PORT'),
   username: configService.get<string>('DB_USERNAME'),
   password: configService.get<string>('DB_PASSWORD'),

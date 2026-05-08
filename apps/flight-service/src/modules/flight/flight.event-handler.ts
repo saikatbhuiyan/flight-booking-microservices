@@ -17,6 +17,12 @@ type FlightSeatEvent = {
   };
 };
 
+type FlightSeatField =
+  | 'economySeatsAvailable'
+  | 'businessSeatsAvailable'
+  | 'firstClassSeatsAvailable'
+  | 'premiumEconomySeatsAvailable';
+
 @Injectable()
 export class FlightEventHandler {
   private readonly logger = new Logger(FlightEventHandler.name);
@@ -200,13 +206,13 @@ export class FlightEventHandler {
     }
   }
 
-  private getSeatField(seatClass: string): keyof Flight {
-    const mapping = {
+  private getSeatField(seatClass: string): FlightSeatField {
+    const mapping: Record<string, FlightSeatField> = {
       ECONOMY: 'economySeatsAvailable',
       BUSINESS: 'businessSeatsAvailable',
       FIRST_CLASS: 'firstClassSeatsAvailable',
       PREMIUM_ECONOMY: 'premiumEconomySeatsAvailable',
     };
-    return mapping[seatClass] as keyof Flight;
+    return mapping[seatClass];
   }
 }

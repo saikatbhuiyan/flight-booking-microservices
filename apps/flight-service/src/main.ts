@@ -4,14 +4,14 @@ import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { FlightServiceModule } from './flight-service.module';
-import { CommonRpcExceptionFilter, RmqSetup } from '@app/common';
+import { CommonRpcExceptionFilter, RmqSetup, resolveRabbitMqUrl } from '@app/common';
 import { initializeTracing } from '@app/telemetry';
 
 async function bootstrap() {
   const logger = new Logger('FlightService');
   const app = await NestFactory.create(FlightServiceModule);
   const configService = app.get(ConfigService);
-  const rabbitmqUrl = configService.get<string>('RABBITMQ_URL');
+  const rabbitmqUrl = resolveRabbitMqUrl(configService.get<string>('RABBITMQ_URL'));
   const queue = 'flight_queue';
 
   initializeTracing('flight-service');

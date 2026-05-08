@@ -4,6 +4,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { PaymentServiceModule } from './payment-service.module';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import helmet from 'helmet';
+import { resolveRabbitMqUrl } from '@app/common';
 
 async function bootstrap() {
   const logger = new Logger('PaymentService');
@@ -42,7 +43,7 @@ async function bootstrap() {
   app.connectMicroservice<MicroserviceOptions>({
     transport: Transport.RMQ,
     options: {
-      urls: [process.env.RABBITMQ_URL || 'amqp://admin:admin@localhost:5672'],
+      urls: [resolveRabbitMqUrl(process.env.RABBITMQ_URL)],
       queue: 'payment_queue',
       queueOptions: {
         durable: true,

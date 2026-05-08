@@ -2,7 +2,7 @@ import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as amqp from 'amqp-connection-manager';
 import { ChannelWrapper } from 'amqp-connection-manager';
-import { IMessageBroker } from '@app/common';
+import { IMessageBroker, resolveRabbitMqUrl } from '@app/common';
 
 @Injectable()
 export class RabbitMQProvider implements IMessageBroker, OnModuleDestroy {
@@ -15,7 +15,7 @@ export class RabbitMQProvider implements IMessageBroker, OnModuleDestroy {
   constructor(private configService: ConfigService) {}
 
   async connect(): Promise<void> {
-    const url = this.configService.get<string>('RABBITMQ_URL');
+    const url = resolveRabbitMqUrl(this.configService.get<string>('RABBITMQ_URL'));
 
     this.connection = amqp.connect([url], {
       heartbeatIntervalInSeconds: 30,

@@ -1,7 +1,8 @@
 import { RabbitMQConfig } from '@golevelup/nestjs-rabbitmq';
+import { resolveRabbitMqUrl } from '@app/common';
 
 export const rabbitmqConfig: RabbitMQConfig = {
-  uri: process.env.RABBITMQ_URL || 'amqp://admin:admin@localhost:5672',
+  uri: resolveRabbitMqUrl(process.env.RABBITMQ_URL),
   exchanges: [
     {
       name: 'booking.events',

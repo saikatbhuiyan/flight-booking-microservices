@@ -3,7 +3,7 @@ import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NotificationServiceModule } from './notification-service.module';
-import { CommonRpcExceptionFilter, RmqSetup } from '@app/common';
+import { CommonRpcExceptionFilter, RmqSetup, resolveRabbitMqUrl } from '@app/common';
 
 async function bootstrap() {
   const logger = new Logger('NotificationService');
@@ -13,7 +13,7 @@ async function bootstrap() {
   // Global prefix for HTTP routes
   app.setGlobalPrefix('api/v1');
 
-  const rabbitmqUrl = configService.get<string>('RABBITMQ_URL');
+  const rabbitmqUrl = resolveRabbitMqUrl(configService.get<string>('RABBITMQ_URL'));
   const queue = 'notification_queue';
 
   // Automatically create queues for this service

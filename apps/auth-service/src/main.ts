@@ -4,13 +4,13 @@ import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AuthServiceModule } from './auth-service.module';
-import { RmqSetup } from '@app/common';
+import { RmqSetup, resolveRabbitMqUrl } from '@app/common';
 
 async function bootstrap() {
   const logger = new Logger('AuthService');
   const app = await NestFactory.create(AuthServiceModule);
   const configService = app.get(ConfigService);
-  const rabbitmqUrl = configService.get<string>('RABBITMQ_URL');
+  const rabbitmqUrl = resolveRabbitMqUrl(configService.get<string>('RABBITMQ_URL'));
   const queue = 'auth_queue';
 
   // Automatically create queues for this service
