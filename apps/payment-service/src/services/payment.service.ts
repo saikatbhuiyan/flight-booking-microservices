@@ -2,7 +2,7 @@ import { ConflictException, Injectable, Logger, NotFoundException } from '@nestj
 import { InjectRepository } from '@nestjs/typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
-import { EventPattern } from '@app/common';
+import { EventPatterns } from '@app/common';
 import { DataSource, FindOptionsWhere, MoreThanOrEqual, Repository } from 'typeorm';
 import { createHash, randomUUID } from 'crypto';
 import { Payment, PaymentStatus } from '../entities/payment.entity';
@@ -312,7 +312,7 @@ export class PaymentService {
         ? payment.metadata.lastConfirmationResult.transactionId
         : undefined;
 
-    await this.amqpConnection.publish('payment.events', EventPattern.PAYMENT_COMPLETED, {
+    await this.amqpConnection.publish('payment.events', EventPatterns.PAYMENT_COMPLETED, {
       paymentId: payment.id,
       bookingId: payment.bookingId,
       bookingReference,

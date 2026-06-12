@@ -45,9 +45,9 @@ export interface IPaginatedResult<T> {
 export interface IMessageBroker {
   connect(): Promise<void>;
   disconnect(): Promise<void>;
-  publish(pattern: string, data: any): Promise<void>;
-  subscribe(pattern: string, handler: (data: any) => Promise<void>): Promise<void>;
-  emit(pattern: string, data: any): void;
+  publish<TInput>(pattern: string, data: TInput): Promise<void>;
+  subscribe<TInput>(pattern: string, handler: (data: TInput) => Promise<void>): Promise<void>;
+  emit<TInput>(pattern: string, data: TInput): void;
 }
 
 // Storage
@@ -103,7 +103,7 @@ export interface IJwtPayload {
 }
 
 // Service Communication Patterns
-export enum MessagePattern {
+export enum MessagePatterns {
   // Auth patterns
   AUTH_REGISTER = 'auth.register',
   AUTH_LOGIN = 'auth.login',
@@ -172,10 +172,17 @@ export enum MessagePattern {
   // Notification patterns
   NOTIFICATION_SEND_EMAIL = 'notification.sendEmail',
   NOTIFICATION_SEND_SMS = 'notification.sendSms',
+
+  // Payment patterns
+  PAYMENT_CREATE_INTENT = 'payment.create_intent',
+  PAYMENT_GET_INTENT = 'payment.get_intent',
+  PAYMENT_CONFIRM_INTENT = 'payment.confirm_intent',
+  PAYMENT_CREATE_REFUND = 'payment.create_refund',
+  PAYMENT_GET_REFUNDS = 'payment.get_refunds',
 }
 
 // Events for async communication
-export enum EventPattern {
+export enum EventPatterns {
   USER_REGISTERED = 'user.registered',
   USER_UPDATED = 'user.updated',
 
@@ -185,6 +192,11 @@ export enum EventPattern {
 
   PAYMENT_COMPLETED = 'payment.completed',
   PAYMENT_FAILED = 'payment.failed',
+  PAYMENT_REFUNDED = 'payment.refunded',
+
+  FLIGHT_RESERVE_SEATS = 'flight.reserve-seats',
+  FLIGHT_CONFIRM_SEATS = 'flight.confirm-seats',
+  FLIGHT_RELEASE_SEATS = 'flight.release-seats',
 }
 
 export interface ActiveUserData {

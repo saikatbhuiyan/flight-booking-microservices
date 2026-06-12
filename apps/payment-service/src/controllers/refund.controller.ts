@@ -3,7 +3,7 @@ import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { RefundService } from '../services/refund.service';
 import { CreateRefundDto } from '../dto/create-refund.dto';
-import { successResponse } from '@app/common';
+import { MessagePatterns, successResponse } from '@app/common';
 
 @ApiTags('Refunds')
 @Controller('refunds')
@@ -30,7 +30,7 @@ export class RefundController {
     return successResponse('refund.list.success', result);
   }
 
-  @MessagePattern('payment.create_refund')
+  @MessagePattern(MessagePatterns.PAYMENT_CREATE_REFUND)
   async handleCreateRefund(@Payload() data: { dto: CreateRefundDto; idempotencyKey?: string } | CreateRefundDto) {
     const dto = 'dto' in data ? data.dto : data;
     const idempotencyKey = 'dto' in data ? data.idempotencyKey : undefined;
@@ -38,7 +38,7 @@ export class RefundController {
     return this.refundService.createRefund(dto, idempotencyKey);
   }
 
-  @MessagePattern('payment.get_refunds')
+  @MessagePattern(MessagePatterns.PAYMENT_GET_REFUNDS)
   async handleGetRefunds(@Payload() data: { bookingId: number }) {
     this.logger.log(`[RabbitMQ] Getting refunds for booking ${data.bookingId}`);
     return this.refundService.getRefundsByBooking(data.bookingId);

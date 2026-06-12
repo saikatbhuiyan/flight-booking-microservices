@@ -10,7 +10,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import { of, throwError } from 'rxjs';
 import { ApiResponseDto } from '@app/common/utils/api-response.dto';
-import { MessagePattern as MP } from '@app/common/interfaces';
+import { MessagePatterns as MP } from '@app/common/interfaces';
 import { ClientType } from '@app/common/enums';
 import { CookieService } from '@app/common/services/cookie.service';
 import { JwtAuthGuard } from '@app/common/guards/jwt-auth.guard';

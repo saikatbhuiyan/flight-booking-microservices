@@ -2,7 +2,7 @@ import { Controller, Get, Post, Put, Body, Param, Query, HttpStatus, Inject, Log
 import { ClientProxy } from '@nestjs/microservices';
 import { firstValueFrom } from 'rxjs';
 import {
-  MessagePattern as MP,
+  MessagePatterns as MP,
   ApiResponseDto,
   CreateBookingDto,
   CurrentUser,
@@ -105,9 +105,9 @@ export class BookingController {
     return ApiResponseDto.success(result, 'booking.availability.success');
   }
 
-  private async callService<T>(pattern: string, data: any): Promise<T> {
+  private async callService<TResult, TInput>(pattern: string, data: TInput): Promise<TResult> {
     try {
-      return await firstValueFrom(this.bookingClient.send<T>(pattern, data));
+      return await firstValueFrom(this.bookingClient.send<TResult>(pattern, data));
     } catch (error) {
       this.logger.error(`Error calling ${pattern}`, JSON.stringify(error, null, 2));
       throw createHttpExceptionFromRpcError(error);

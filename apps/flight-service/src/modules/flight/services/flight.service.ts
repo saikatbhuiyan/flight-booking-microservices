@@ -4,7 +4,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { FlightRepository } from '../repositories/flight.repository';
 import { AirplaneRepository } from '../../airplane/repositories/airplane.repository';
 import { AirportRepository } from '../../airport/repositories/airport.repository';
-import { SharedCreateFlightDto, SharedSearchFlightDto } from '@app/common';
+import { EventPatterns, SharedCreateFlightDto, SharedSearchFlightDto } from '@app/common';
 import { Flight } from '../../../entities/flight.entity';
 
 @Injectable()
@@ -53,7 +53,7 @@ export class FlightService {
     await this.flightRepository.delete(id);
   }
 
-  @OnEvent('flight.reserve-seats')
+  @OnEvent(EventPatterns.FLIGHT_RESERVE_SEATS)
   async reserveSeats(payload: {
     flightId: number;
     bookingId: string;
@@ -87,14 +87,14 @@ export class FlightService {
     });
   }
 
-  @OnEvent('flight.confirm-seats')
+  @OnEvent(EventPatterns.FLIGHT_CONFIRM_SEATS)
   confirmSeats(payload: { flightId: number; bookingId: string; seatClass: string; seatCount: number }): void {
     const { flightId, bookingId } = payload;
 
     this.logger.log(`Confirmed seat reservation for booking ${bookingId} on flight ${flightId}`);
   }
 
-  @OnEvent('flight.release-seats')
+  @OnEvent(EventPatterns.FLIGHT_RELEASE_SEATS)
   async releaseSeats(payload: {
     flightId: number;
     bookingId: string;

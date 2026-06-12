@@ -17,7 +17,7 @@ import { AirplaneService } from '../services/airplane.service';
 import { CreateAirplaneDto, UpdateAirplaneDto, QueryAirplaneDto } from '@app/common';
 import { AirplaneResponseDto } from '../dto/airplane-response.dto';
 import { ApiPaginatedResponse } from '../../../common/decorators/api-paginated-response.decorator';
-import { MessagePattern as MP } from '@app/common';
+import { MessagePatterns as MP } from '@app/common';
 
 @ApiTags('Airplanes')
 @Controller('airplanes')

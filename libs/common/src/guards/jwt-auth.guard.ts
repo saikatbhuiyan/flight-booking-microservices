@@ -5,7 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { ClientProxy } from '@nestjs/microservices';
 import { firstValueFrom } from 'rxjs';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
-import { MessagePattern as MP } from '../interfaces';
+import { MessagePatterns as MP } from '../interfaces';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {

@@ -63,12 +63,12 @@ export class RabbitMQProvider implements IMessageBroker, OnModuleDestroy {
     this.logger.log('Disconnected from RabbitMQ');
   }
 
-  async publish(pattern: string, data: any): Promise<void> {
+  async publish<TInput>(pattern: string, data: TInput): Promise<void> {
     try {
       await this.channelWrapper.publish(this.exchange, pattern, data, {
         deliveryMode: 2,
         timestamp: Date.now(),
-      } as any);
+      });
       this.logger.debug(`Published message to ${pattern}`);
     } catch (error) {
       this.logger.error(`Failed to publish message to ${pattern}`, error);
@@ -76,7 +76,7 @@ export class RabbitMQProvider implements IMessageBroker, OnModuleDestroy {
     }
   }
 
-  async subscribe(pattern: string, handler: (data: any) => Promise<void>): Promise<void> {
+  async subscribe<TInput>(pattern: string, handler: (data: TInput) => Promise<void>): Promise<void> {
     const queueName = `queue_${pattern.replace(/\./g, '_')}`;
 
     await this.channelWrapper.addSetup(async (channel: any) => {
@@ -115,7 +115,7 @@ export class RabbitMQProvider implements IMessageBroker, OnModuleDestroy {
     this.logger.log(`Subscribed to pattern: ${pattern}`);
   }
 
-  emit(pattern: string, data: any): void {
+  emit<TInput>(pattern: string, data: TInput): void {
     this.publish(pattern, data).catch((error) => {
       this.logger.error(`Failed to emit message to ${pattern}`, error);
     });

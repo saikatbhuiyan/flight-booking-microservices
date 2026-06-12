@@ -3,7 +3,7 @@ import { Ctx, MessagePattern, Payload, RmqContext } from '@nestjs/microservices'
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuthenticationService } from './authentication.service';
 import {
-  MessagePattern as MP,
+  MessagePatterns as MP,
   RefreshTokenDto,
   RmqHelper,
   SignInDto,

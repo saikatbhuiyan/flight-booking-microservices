@@ -19,7 +19,7 @@ import { UpdateCityDto } from '../dto/update-city.dto';
 import { QueryCityDto } from '../dto/query-city.dto';
 import { CityResponseDto } from '../dto/city-response.dto';
 import { ApiPaginatedResponse } from '../../../common/decorators/api-paginated-response.decorator';
-import { MessagePattern as MP } from '@app/common';
+import { MessagePatterns as MP } from '@app/common';
 
 /**
  * Controller for City operations

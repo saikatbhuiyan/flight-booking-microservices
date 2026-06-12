@@ -19,7 +19,7 @@ import { UpdateAirportDto } from '../dto/update-airport.dto';
 import { QueryAirportDto } from '../dto/query-airport.dto';
 import { AirportResponseDto } from '../dto/airport-response.dto';
 import { ApiPaginatedResponse } from '../../../common/decorators/api-paginated-response.decorator';
-import { MessagePattern as MP } from '@app/common';
+import { MessagePatterns as MP } from '@app/common';
 
 @ApiTags('Airports')
 @Controller('airports')

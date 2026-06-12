@@ -7,6 +7,7 @@ import { SeatLockService } from '@app/seat-lock';
 import { OutboxService } from '../outbox/outbox.service';
 import { v4 as uuidv4 } from 'uuid';
 import { trace, context as otelContext, SpanStatusCode } from '@opentelemetry/api';
+import { EventPatterns } from '@app/common';
 
 export interface CreateBookingDto {
   userId: number;
@@ -155,7 +156,7 @@ export class BookingSagaOrchestrator {
         await this.outboxService.storeEvent(
           'BOOKING',
           sagaState.bookingId,
-          'booking.created',
+          EventPatterns.BOOKING_CREATED,
           { bookingId: sagaState.bookingId, userId: dto.userId },
           manager,
         );
@@ -236,7 +237,7 @@ export class BookingSagaOrchestrator {
         await this.outboxService.storeEvent(
           'BOOKING',
           sagaState.bookingId,
-          'flight.reserve-seats',
+          EventPatterns.FLIGHT_RESERVE_SEATS,
           {
             flightId: Number(dto.flightId), // Coerce to number
             bookingId: sagaState.bookingId,
@@ -296,7 +297,7 @@ export class BookingSagaOrchestrator {
         await this.outboxService.storeEvent(
           'BOOKING',
           bookingId,
-          'flight.confirm-seats',
+          EventPatterns.FLIGHT_CONFIRM_SEATS,
           {
             flightId: Number(dto.flightId), // Coerce to number
             bookingId,
@@ -328,7 +329,7 @@ export class BookingSagaOrchestrator {
         await this.outboxService.storeEvent(
           'BOOKING',
           bookingId,
-          'booking.confirmed',
+          EventPatterns.BOOKING_CONFIRMED,
           { bookingId, userId: dto.userId },
           manager,
         );
@@ -400,7 +401,13 @@ export class BookingSagaOrchestrator {
           };
 
           // Release flight seats via outbox
-          await this.outboxService.storeEvent('BOOKING', sagaState.bookingId, 'flight.release-seats', payload, manager);
+          await this.outboxService.storeEvent(
+            'BOOKING',
+            sagaState.bookingId,
+            EventPatterns.FLIGHT_RELEASE_SEATS,
+            payload,
+            manager,
+          );
         }
 
         if (sagaState.currentStep >= 2) {

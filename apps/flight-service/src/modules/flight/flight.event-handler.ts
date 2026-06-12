@@ -5,6 +5,7 @@ import { Repository, DataSource } from 'typeorm';
 import { trace, context as otelContext, SpanStatusCode } from '@opentelemetry/api';
 import { ProcessedEvent } from '../../entities/processed-events.entity';
 import { Flight } from '../../entities/flight.entity';
+import { EventPatterns } from '@app/common';
 
 type FlightSeatEvent = {
   flightId: number;
@@ -40,7 +41,7 @@ export class FlightEventHandler {
 
   @RabbitSubscribe({
     exchange: 'booking.events',
-    routingKey: 'flight.reserve-seats',
+    routingKey: EventPatterns.FLIGHT_RESERVE_SEATS,
     queue: 'flight-service.reserve-seats',
   })
   async handleReserveSeats(msg: FlightSeatEvent): Promise<void> {
@@ -90,7 +91,7 @@ export class FlightEventHandler {
 
           await manager.save(ProcessedEvent, {
             eventId,
-            eventType: 'flight.reserve-seats',
+            eventType: EventPatterns.FLIGHT_RESERVE_SEATS,
             aggregateId: msg.bookingId,
           });
 
@@ -100,8 +101,9 @@ export class FlightEventHandler {
 
       span.setStatus({ code: SpanStatusCode.OK });
     } catch (error) {
-      this.logger.error(`Error reserving seats for event ${eventId}:`, error);
-      span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
+      const errorMessage = this.getErrorMessage(error);
+      this.logger.error(`Error reserving seats for event ${eventId}: ${errorMessage}`);
+      span.setStatus({ code: SpanStatusCode.ERROR, message: errorMessage });
 
       throw error;
     } finally {
@@ -111,7 +113,7 @@ export class FlightEventHandler {
 
   @RabbitSubscribe({
     exchange: 'booking.events',
-    routingKey: 'flight.confirm-seats',
+    routingKey: EventPatterns.FLIGHT_CONFIRM_SEATS,
     queue: 'flight-service.confirm-seats',
   })
   async handleConfirmSeats(msg: FlightSeatEvent): Promise<void> {
@@ -138,7 +140,7 @@ export class FlightEventHandler {
       await this.dataSource.transaction(async (manager) => {
         await manager.save(ProcessedEvent, {
           eventId,
-          eventType: 'flight.confirm-seats',
+          eventType: EventPatterns.FLIGHT_CONFIRM_SEATS,
           aggregateId: msg.bookingId,
         });
 
@@ -147,8 +149,9 @@ export class FlightEventHandler {
 
       span.setStatus({ code: SpanStatusCode.OK });
     } catch (error) {
-      this.logger.error(`Error confirming seats for event ${eventId}:`, error);
-      span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
+      const errorMessage = this.getErrorMessage(error);
+      this.logger.error(`Error confirming seats for event ${eventId}: ${errorMessage}`);
+      span.setStatus({ code: SpanStatusCode.ERROR, message: errorMessage });
       throw error;
     } finally {
       span.end();
@@ -157,7 +160,7 @@ export class FlightEventHandler {
 
   @RabbitSubscribe({
     exchange: 'booking.events',
-    routingKey: 'flight.release-seats',
+    routingKey: EventPatterns.FLIGHT_RELEASE_SEATS,
     queue: 'flight-service.release-seats',
   })
   async handleReleaseSeats(msg: FlightSeatEvent): Promise<void> {
@@ -189,7 +192,7 @@ export class FlightEventHandler {
 
         await manager.save(ProcessedEvent, {
           eventId,
-          eventType: 'flight.release-seats',
+          eventType: EventPatterns.FLIGHT_RELEASE_SEATS,
           aggregateId: msg.bookingId,
         });
 
@@ -198,8 +201,9 @@ export class FlightEventHandler {
 
       span.setStatus({ code: SpanStatusCode.OK });
     } catch (error) {
-      this.logger.error(`Error releasing seats for event ${eventId}:`, error);
-      span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
+      const errorMessage = this.getErrorMessage(error);
+      this.logger.error(`Error releasing seats for event ${eventId}: ${errorMessage}`);
+      span.setStatus({ code: SpanStatusCode.ERROR, message: errorMessage });
       throw error;
     } finally {
       span.end();
@@ -214,5 +218,12 @@ export class FlightEventHandler {
       PREMIUM_ECONOMY: 'premiumEconomySeatsAvailable',
     };
     return mapping[seatClass];
+  }
+
+  private getErrorMessage(error: unknown): string {
+    if (error instanceof Error) {
+      return error.message;
+    }
+    return String(error);
   }
 }

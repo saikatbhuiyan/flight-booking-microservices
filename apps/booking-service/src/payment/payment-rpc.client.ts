@@ -3,6 +3,7 @@ import { ClientProxy } from '@nestjs/microservices';
 import { firstValueFrom, timeout } from 'rxjs';
 import { PaymentClient, CreatePaymentIntentRequest, CreatePaymentIntentResponse } from './payment-client.interface';
 import { BookingPaymentMode } from './payment-mode';
+import { MessagePatterns } from '@app/common';
 
 export const PAYMENT_RMQ_CLIENT = Symbol('PAYMENT_RMQ_CLIENT');
 
@@ -30,7 +31,9 @@ export class PaymentRpcClient implements PaymentClient {
     };
 
     try {
-      const res = await firstValueFrom(this.client.send('payment.create_intent', payload).pipe(timeout(5000)));
+      const res = await firstValueFrom(
+        this.client.send(MessagePatterns.PAYMENT_CREATE_INTENT, payload).pipe(timeout(5000)),
+      );
 
       return {
         paymentId: res?.id,

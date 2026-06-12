@@ -2,7 +2,7 @@ import { Controller, Get, Post, Body, Param, Delete, ParseIntPipe } from '@nestj
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { SeatService } from '../services/seat.service';
-import { CreateSeatDto, BulkCreateSeatsDto, MessagePattern as MP } from '@app/common';
+import { CreateSeatDto, BulkCreateSeatsDto, MessagePatterns as MP } from '@app/common';
 
 @ApiTags('Seats')
 @Controller('seats')

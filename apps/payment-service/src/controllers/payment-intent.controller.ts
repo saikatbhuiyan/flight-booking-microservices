@@ -5,7 +5,7 @@ import { PaymentService } from '../services/payment.service';
 import { CreatePaymentIntentDto } from '../dto/create-payment-intent.dto';
 import { ConfirmPaymentIntentDto } from '../dto/confirm-payment-intent.dto';
 import { QueryLedgerEntriesDto } from '../dto/query-ledger-entries.dto';
-import { successResponse } from '@app/common';
+import { MessagePatterns, successResponse } from '@app/common';
 
 type CreatePaymentIntentMessage =
   | CreatePaymentIntentDto
@@ -70,7 +70,7 @@ export class PaymentIntentController {
     return successResponse('payment.intent.ledger.success', result);
   }
 
-  @MessagePattern('payment.create_intent')
+  @MessagePattern(MessagePatterns.PAYMENT_CREATE_INTENT)
   async handleCreateIntent(@Payload() payload: CreatePaymentIntentMessage) {
     const dto = 'dto' in payload ? payload.dto : payload;
     const idempotencyKey = 'dto' in payload ? payload.idempotencyKey : undefined;
@@ -79,13 +79,13 @@ export class PaymentIntentController {
     return this.paymentService.createPaymentIntent(dto, idempotencyKey);
   }
 
-  @MessagePattern('payment.get_intent')
+  @MessagePattern(MessagePatterns.PAYMENT_GET_INTENT)
   async handleGetIntent(@Payload() data: { id: string }) {
     this.logger.log(`[RabbitMQ] Getting payment intent ${data.id}`);
     return this.paymentService.getPaymentIntent(data.id);
   }
 
-  @MessagePattern('payment.confirm_intent')
+  @MessagePattern(MessagePatterns.PAYMENT_CONFIRM_INTENT)
   async handleConfirmIntent(@Payload() data: { id: string; dto?: ConfirmPaymentIntentDto; idempotencyKey?: string }) {
     this.logger.log(`[RabbitMQ] Confirming payment intent ${data.id}`);
     return this.paymentService.confirmPaymentIntent(data.id, data.dto || {}, data.idempotencyKey);

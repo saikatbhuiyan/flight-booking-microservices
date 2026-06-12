@@ -17,7 +17,7 @@ import { ClientProxy } from '@nestjs/microservices';
 import { firstValueFrom } from 'rxjs';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
 import {
-  MessagePattern as MP,
+  MessagePatterns as MP,
   Public,
   Roles,
   Role,
@@ -111,9 +111,9 @@ export class AirportController {
     return ApiResponseDto.success(null, 'airport.delete.success');
   }
 
-  private async callService<T>(pattern: string, data: any): Promise<T> {
+  private async callService<TResult, TInput>(pattern: string, data: TInput): Promise<TResult> {
     try {
-      return await firstValueFrom(this.flightClient.send<T>(pattern, data));
+      return await firstValueFrom(this.flightClient.send<TResult>(pattern, data));
     } catch (error) {
       this.logger.error(`Error calling ${pattern}`, JSON.stringify(error, null, 2));
       throw createHttpExceptionFromRpcError(error);

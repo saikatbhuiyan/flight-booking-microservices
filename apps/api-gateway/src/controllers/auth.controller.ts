@@ -15,7 +15,7 @@ import {
 import { ClientProxy } from '@nestjs/microservices';
 import { firstValueFrom } from 'rxjs';
 import {
-  MessagePattern as MP,
+  MessagePatterns as MP,
   ApiResponseDto,
   Public,
   CurrentUser,
@@ -174,16 +174,16 @@ export class AuthController {
   }
 
   // --- Helper -----------------------------------------------------
-  private async callService<T>(pattern: string, data: any): Promise<T> {
+  private async callService<TResult, TInput>(pattern: string, data: TInput): Promise<TResult> {
     try {
-      return await firstValueFrom(this.authClient.send<T>(pattern, data));
+      return await firstValueFrom(this.authClient.send<TResult>(pattern, data));
     } catch (error) {
       this.logger.error(`Error calling ${pattern}`, JSON.stringify(error, null, 2));
       throw createHttpExceptionFromRpcError(error);
     }
   }
 
-  private async callAuthService<T extends AuthTokens>(pattern: string, data: any): Promise<T> {
-    return this.callService<T>(pattern, data);
+  private async callAuthService<TResult extends AuthTokens, TInput>(pattern: string, data: TInput): Promise<TResult> {
+    return this.callService<TResult, TInput>(pattern, data);
   }
 }

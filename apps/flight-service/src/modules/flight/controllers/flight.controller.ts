@@ -14,7 +14,7 @@ import { MessagePattern, Payload } from '@nestjs/microservices';
 import { ApiOperation, ApiResponse, ApiTags, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
 import { FlightService } from '../services/flight.service';
 import {
-  MessagePattern as MP,
+  MessagePatterns as MP,
   SharedCreateFlightDto,
   SharedSearchFlightDto,
   CommonRpcExceptionFilter,

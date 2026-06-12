@@ -1,6 +1,6 @@
 import { Controller, Post, Get, Put, Body, Param, Query, Req, HttpStatus } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
-import { MessagePattern as MP, successResponse } from '@app/common';
+import { MessagePatterns as MP, successResponse } from '@app/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
 import { BookingService } from './booking.service';
 import { CreateBookingDto } from '../booking-saga/saga-orchestrator.service';

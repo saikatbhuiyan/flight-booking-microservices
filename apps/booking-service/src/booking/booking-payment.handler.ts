@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
-import { EventPattern } from '@app/common';
+import { EventPatterns } from '@app/common';
 import { BookingService } from './booking.service';
 
 type PaymentCompletedEvent = {
@@ -25,7 +25,7 @@ export class BookingPaymentHandler {
 
   @RabbitSubscribe({
     exchange: 'payment.events',
-    routingKey: EventPattern.PAYMENT_COMPLETED,
+    routingKey: EventPatterns.PAYMENT_COMPLETED,
     queue: 'booking-service.payment-completed',
   })
   async handlePaymentCompleted(msg: PaymentCompletedEvent): Promise<void> {
