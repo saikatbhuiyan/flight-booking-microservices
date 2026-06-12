@@ -1,24 +1,12 @@
+# See https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
+
 # compiled output
-/dist
-/node_modules
-node_modules/
-/build
+dist
+tmp
+out-tsc
 
-# Logs
-logs
-*.log
-npm-debug.log*
-pnpm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-lerna-debug.log*
-
-# OS
-.DS_Store
-
-# Tests
-/coverage
-/.nyc_output
+# dependencies
+node_modules
 
 # IDEs and editors
 /.idea
@@ -36,22 +24,60 @@ lerna-debug.log*
 !.vscode/launch.json
 !.vscode/extensions.json
 
-# dotenv environment variable files
+# misc
+/.sass-cache
+/connect.lock
+/coverage
+/libpeerconnection.log
+npm-debug.log
+yarn-error.log
+testem.log
+/typings
+
+# System Files
+.DS_Store
+Thumbs.db
+
+# Nx
+.nx/cache
+.nx/workspace-data
+
+# Claude AI
+.claude/worktrees
+.claude/settings.local.json
+
+# Environment files (sensitive)
 .env
-.env.development.local
-.env.test.local
-.env.production.local
-.env.local
+.env.dev
+.env.prod
+.env.*.local
 
-# temp directory
-.temp
-.tmp
+# Docker data volumes
+docker/**/docker_data */
 
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
+# Redis dump
+dump.rdb
 
-# Diagnostic reports (https://nodejs.org/api/report.html)
-report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+# Logs
+*.log
+logs/
+
+# Local notes and temp files
+*.local
+*.tmp
+*.temp
+TODO.md
+NOTES.md
+
+# Internal project documentation (agent context)
+AGENTS.md
+ARCHITECTURE-GAPS.md
+MONGODB-CONFIG.md
+docs/
+
+# Testing
+coverage/
+.nyc_output/
+
+# Build artifacts
+*.tsbuildinfo
