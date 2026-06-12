@@ -1,5 +1,5 @@
 import { RabbitMQConfig } from '@golevelup/nestjs-rabbitmq';
-import { resolveRabbitMqUrl } from '@app/common';
+import { EventPatterns, resolveRabbitMqUrl } from '@app/common';
 
 // RABBITMQ CONFIGURATION WITH DLQ
 export const rabbitmqConfig: RabbitMQConfig = {
@@ -26,12 +26,12 @@ export const rabbitmqConfig: RabbitMQConfig = {
     {
       name: 'flight-service.reserve-seats',
       exchange: 'booking.events',
-      routingKey: 'flight.reserve-seats',
+      routingKey: EventPatterns.FLIGHT_RESERVE_SEATS,
       options: {
         durable: true,
         arguments: {
           'x-dead-letter-exchange': 'booking.dlq',
-          'x-dead-letter-routing-key': 'flight.reserve-seats.failed',
+          'x-dead-letter-routing-key': `${EventPatterns.FLIGHT_RESERVE_SEATS}.failed`,
           'x-message-ttl': 300000, // 5 minutes
           'x-max-retries': 3,
         },
@@ -40,7 +40,7 @@ export const rabbitmqConfig: RabbitMQConfig = {
     {
       name: 'flight-service.confirm-seats',
       exchange: 'booking.events',
-      routingKey: 'flight.confirm-seats',
+      routingKey: EventPatterns.FLIGHT_CONFIRM_SEATS,
       options: {
         durable: true,
         arguments: {
@@ -51,7 +51,7 @@ export const rabbitmqConfig: RabbitMQConfig = {
     {
       name: 'flight-service.release-seats',
       exchange: 'booking.events',
-      routingKey: 'flight.release-seats',
+      routingKey: EventPatterns.FLIGHT_RELEASE_SEATS,
       options: {
         durable: true,
         arguments: {

@@ -18,11 +18,14 @@ import { City } from './entities/city.entity';
 import { Airport } from './entities/airport.entity';
 import { Airplane } from './entities/airplane.entity';
 import { Seat } from './entities/seat.entity';
+import { ProcessedEvent } from './entities/processed-events.entity';
 import { CityModule } from './modules/city/city.module';
 import { AirportModule } from './modules/airport/airport.module';
 import { AirplaneModule } from './modules/airplane/airplane.module';
 import { SeatModule } from './modules/seat/seat.module';
 import { FlightModule } from './modules/flight/flight.module';
+import { RabbitMQModule } from '@golevelup/nestjs-rabbitmq';
+import { rabbitmqConfig } from './config/rabbitmq.config';
 
 @Module({
   imports: [
@@ -53,11 +56,15 @@ import { FlightModule } from './modules/flight/flight.module';
         inject: [ConfigService],
       },
     ]),
-    DatabaseModule.forRoot([Flight, City, Airport, Airplane, Seat], [__dirname + '/migrations/*.{ts,js}']),
-    TypeOrmModule.forFeature([Flight, City, Airport, Airplane, Seat]),
+    DatabaseModule.forRoot(
+      [Flight, City, Airport, Airplane, Seat, ProcessedEvent],
+      [__dirname + '/migrations/*.{ts,js}'],
+    ),
+    TypeOrmModule.forFeature([Flight, City, Airport, Airplane, Seat, ProcessedEvent]),
     CommonModule,
     WinstonModule.forRoot(winstonLoggerConfig),
     HealthModule,
+    RabbitMQModule.forRoot(rabbitmqConfig),
     CityModule,
     AirportModule,
     AirplaneModule,

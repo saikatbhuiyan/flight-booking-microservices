@@ -9,10 +9,12 @@ import { AirportModule } from '../airport/airport.module';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ClientsModule, Transport } from '@nestjs/microservices';
+import { FlightEventHandler } from './flight.event-handler';
+import { ProcessedEvent } from '../../entities/processed-events.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Flight]),
+    TypeOrmModule.forFeature([Flight, ProcessedEvent]),
     AirplaneModule,
     AirportModule,
     JwtModule.registerAsync({
@@ -49,7 +51,7 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
     ]),
   ],
   controllers: [FlightController],
-  providers: [FlightService, FlightRepository],
+  providers: [FlightService, FlightRepository, FlightEventHandler],
   exports: [FlightService, FlightRepository],
 })
 export class FlightModule {}
