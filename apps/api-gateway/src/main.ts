@@ -12,6 +12,7 @@ async function bootstrap() {
   const logger = new Logger('APIGateway');
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
+  app.enableShutdownHooks();
 
   // Apply global rate limiter (100 requests per minute by default)
   const reflector = app.get(Reflector);
@@ -20,7 +21,12 @@ async function bootstrap() {
   app.useGlobalGuards(new RateLimiterGuard(reflector, rateLimiterService));
 
   // Security
-  app.use(helmet());
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+      crossOriginEmbedderPolicy: false,
+    }),
+  );
   app.use(cookieParser());
   app.enableCors({
     origin: configService.get<string>('CORS_ORIGIN') || '*',
@@ -75,13 +81,6 @@ async function bootstrap() {
     },
     customSiteTitle: 'Flight Booking API Docs',
   });
-
-  app.use(
-    helmet({
-      contentSecurityPolicy: false,
-      crossOriginEmbedderPolicy: false,
-    }),
-  );
 
   const port = configService.get<number>('PORT') || 3000;
   await app.listen(port);

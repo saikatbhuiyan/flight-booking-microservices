@@ -11,6 +11,7 @@ async function bootstrap() {
   const logger = new Logger('FlightService');
   const app = await NestFactory.create(FlightServiceModule);
   const configService = app.get(ConfigService);
+  app.enableShutdownHooks();
   const rabbitmqUrl = resolveRabbitMqUrl(configService.get<string>('RABBITMQ_URL'));
   const queue = 'flight_queue';
 

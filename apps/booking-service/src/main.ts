@@ -11,6 +11,7 @@ async function bootstrap() {
   const logger = new Logger('BookingService');
   const app = await NestFactory.create(BookingServiceModule);
   const configService = app.get(ConfigService);
+  app.enableShutdownHooks();
 
   initializeTracing('booking-service');
 

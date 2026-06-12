@@ -3,6 +3,7 @@ import { ValidationPipe, Logger } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { PaymentServiceModule } from './payment-service.module';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
+import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
 import { resolveRabbitMqUrl } from '@app/common';
 
@@ -11,6 +12,8 @@ async function bootstrap() {
   const app = await NestFactory.create(PaymentServiceModule, {
     rawBody: true, // Required for webhook signature verification
   });
+  const configService = app.get(ConfigService);
+  app.enableShutdownHooks();
 
   // Security
   app.use(helmet());
@@ -43,7 +46,7 @@ async function bootstrap() {
   app.connectMicroservice<MicroserviceOptions>({
     transport: Transport.RMQ,
     options: {
-      urls: [resolveRabbitMqUrl(process.env.RABBITMQ_URL)],
+      urls: [resolveRabbitMqUrl(configService.get<string>('RABBITMQ_URL'))],
       queue: 'payment_queue',
       queueOptions: {
         durable: true,
@@ -54,12 +57,12 @@ async function bootstrap() {
   await app.startAllMicroservices();
   logger.log('Payment service microservice started');
 
-  const port = process.env.PORT || 3005;
+  const port = configService.get<number>('PORT') || 3005;
   await app.listen(port);
 
   logger.log(`Payment service is running on: http://localhost:${port}`);
   logger.log(`Swagger documentation: http://localhost:${port}/api/docs`);
-  logger.log(`Payment gateway: ${process.env.PAYMENT_GATEWAY || 'stripe'}`);
+  logger.log(`Payment gateway: ${configService.get<string>('PAYMENT_GATEWAY') || 'stripe'}`);
 }
 
 void bootstrap();

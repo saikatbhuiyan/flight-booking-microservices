@@ -10,6 +10,7 @@ async function bootstrap() {
   const logger = new Logger('AuthService');
   const app = await NestFactory.create(AuthServiceModule);
   const configService = app.get(ConfigService);
+  app.enableShutdownHooks();
   const rabbitmqUrl = resolveRabbitMqUrl(configService.get<string>('RABBITMQ_URL'));
   const queue = 'auth_queue';
 

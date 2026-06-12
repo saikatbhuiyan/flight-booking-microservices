@@ -6,6 +6,7 @@ import { HealthModule, CommonModule, GlobalExceptionFilter, winstonLoggerConfig 
 import { WinstonModule } from 'nest-winston';
 import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { RabbitMQModule } from '@golevelup/nestjs-rabbitmq';
+import { ScheduleModule } from '@nestjs/schedule';
 import { rabbitmqConfig } from './config/rabbitmq.config';
 import { Booking } from './entities/booking.entity';
 import { SagaState } from './entities/saga-state.entity';
@@ -13,12 +14,13 @@ import { OutboxEvent } from './entities/outbox-event.entity';
 import { LoggingInterceptor } from '@app/common';
 import { BookingController } from './booking/booking.controller';
 import { BookingPaymentHandler } from './booking/booking-payment.handler';
+import { BookingCleanupService } from './booking/booking-cleanup.service';
 import { BookingService } from './booking/booking.service';
 import { BookingSagaOrchestrator } from './booking-saga/saga-orchestrator.service';
 import { OutboxService } from './outbox/outbox.service';
 import { BookingRepository } from './repositories/booking.repository';
 import { SeatLockService } from '@app/seat-lock';
-import { EventEmitterModule, EventEmitter2 } from '@nestjs/event-emitter';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { paymentProviders } from './payment/payment.providers';
 
 @Module({
@@ -32,7 +34,8 @@ import { paymentProviders } from './payment/payment.providers';
     CommonModule,
     WinstonModule.forRoot(winstonLoggerConfig),
     HealthModule,
-    EventEmitterModule,
+    EventEmitterModule.forRoot(),
+    ScheduleModule.forRoot(),
     RabbitMQModule.forRoot(rabbitmqConfig),
   ],
   controllers: [BookingController],
@@ -46,12 +49,12 @@ import { paymentProviders } from './payment/payment.providers';
       useClass: GlobalExceptionFilter,
     },
     BookingPaymentHandler,
+    BookingCleanupService,
     BookingService,
     BookingSagaOrchestrator,
     OutboxService,
     BookingRepository,
     SeatLockService,
-    EventEmitter2,
     ...paymentProviders,
   ],
 })

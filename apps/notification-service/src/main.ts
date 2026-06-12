@@ -9,6 +9,7 @@ async function bootstrap() {
   const logger = new Logger('NotificationService');
   const app = await NestFactory.create(NotificationServiceModule);
   const configService = app.get(ConfigService);
+  app.enableShutdownHooks();
 
   // Global prefix for HTTP routes
   app.setGlobalPrefix('api/v1');
