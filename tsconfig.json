@@ -24,6 +24,12 @@
       "@app/common/*": [
         "libs/common/src/*"
       ],
+      "@app/circuit-breaker": [
+        "libs/circuit-breaker/src"
+      ],
+      "@app/circuit-breaker/*": [
+        "libs/circuit-breaker/src/*"
+      ],
       "@app/database": [
         "libs/database/src"
       ],
@@ -59,6 +65,12 @@
       ],
       "@app/telemetry/*": [
         "libs/telemetry/src/*"
+      ],
+      "@app/transports": [
+        "libs/transports/src"
+      ],
+      "@app/transports/*": [
+        "libs/transports/src/*"
       ]
     }
   }

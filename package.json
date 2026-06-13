@@ -158,13 +158,15 @@
       "<rootDir>/apps/"
     ],
     "moduleNameMapper": {
+      "^@app/circuit-breaker(|/.*)$": "<rootDir>/libs/circuit-breaker/src/$1",
       "^@app/common(|/.*)$": "<rootDir>/libs/common/src/$1",
       "^@app/database(|/.*)$": "<rootDir>/libs/database/src/$1",
       "^@app/message-broker(|/.*)$": "<rootDir>/libs/message-broker/src/$1",
       "^@app/storage(|/.*)$": "<rootDir>/libs/storage/src/$1",
       "^@app/seat-lock(|/.*)$": "<rootDir>/libs/seat-lock/src/$1",
       "^@app/rate-limiter(|/.*)$": "<rootDir>/libs/rate-limiter/src/$1",
-      "^@app/telemetry(|/.*)$": "<rootDir>/libs/telemetry/src/$1"
+      "^@app/telemetry(|/.*)$": "<rootDir>/libs/telemetry/src/$1",
+      "^@app/transports(|/.*)$": "<rootDir>/libs/transports/src/$1"
     }
   }
 }

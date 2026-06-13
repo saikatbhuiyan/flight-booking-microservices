@@ -74,6 +74,24 @@
       "compilerOptions": {
         "tsConfigPath": "libs/rate-limiter/tsconfig.lib.json"
       }
+    },
+    "transports": {
+      "type": "library",
+      "root": "libs/transports",
+      "entryFile": "index",
+      "sourceRoot": "libs/transports/src",
+      "compilerOptions": {
+        "tsConfigPath": "libs/transports/tsconfig.lib.json"
+      }
+    },
+    "circuit-breaker": {
+      "type": "library",
+      "root": "libs/circuit-breaker",
+      "entryFile": "index",
+      "sourceRoot": "libs/circuit-breaker/src",
+      "compilerOptions": {
+        "tsConfigPath": "libs/circuit-breaker/tsconfig.lib.json"
+      }
     }
   }
 }
