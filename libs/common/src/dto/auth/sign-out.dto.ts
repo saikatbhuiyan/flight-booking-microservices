@@ -1,6 +1,6 @@
 import { IsEnum, IsNumber, IsOptional, IsPositive, IsString } from 'class-validator';
 import { ClientType } from '@app/common';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, OmitType } from '@nestjs/swagger';
 
 export class SignOutDto {
   @ApiProperty({ example: 1, description: 'User ID' })
@@ -24,3 +24,6 @@ export class SignOutDto {
   @IsOptional()
   clientType?: ClientType = ClientType.WEB;
 }
+
+/** Public logout body: the user is always taken from the access token, never from the request. */
+export class LogoutRequestDto extends OmitType(SignOutDto, ['userId'] as const) {}
