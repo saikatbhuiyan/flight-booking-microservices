@@ -427,6 +427,19 @@ export class BookingSagaOrchestrator {
           },
         );
 
+        // Notify the customer (same transaction; compensation exits early once COMPENSATED, so this fires once)
+        await this.outboxService.storeEvent(
+          'BOOKING',
+          sagaState.bookingId,
+          EventPatterns.BOOKING_CANCELLED,
+          {
+            bookingId: sagaState.bookingId,
+            userId: (sagaState.payload as CreateBookingDto).userId,
+            reason: error.message,
+          },
+          manager,
+        );
+
         // Mark saga as compensated
         sagaState.status = SagaStatus.COMPENSATED;
         await manager.save(SagaState, sagaState);
