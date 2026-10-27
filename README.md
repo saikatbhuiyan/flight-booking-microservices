@@ -182,6 +182,8 @@ If you are evaluating the project, these are the fastest places to get signal:
 - Some lint warnings still exist in older parts of the codebase, but the repo now builds cleanly and the root scripts point at real apps.
 - Stripe is the production-ready payment path in this repo. PayPal is registered but intentionally returns `NotImplemented`.
 - RPC queue options live in `libs/common/src/rmq/rpc-queue.ts` and are shared by services and their clients.
+- The API gateway is the only public API. Backend services serve RabbitMQ handlers plus `/api/v1/health` over HTTP;
+  their business endpoints are reachable only through the gateway, which applies JWT auth, roles, and rate limits.
 
 ### One-time migration: RPC queue arguments changed
 

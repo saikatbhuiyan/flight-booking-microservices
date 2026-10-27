@@ -77,7 +77,7 @@ export class AirportController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get airport statistics' })
   async getStatistics() {
-    const result = await this.callService(MP.AIRPORT_FIND_ALL, { limit: 0 });
+    const result = await this.callService(MP.AIRPORT_STATISTICS, {});
     return ApiResponseDto.success(result, 'airport.statistics.success');
   }
 
