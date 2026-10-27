@@ -8,6 +8,8 @@ import {
   GlobalExceptionFilter,
   winstonLoggerConfig,
   LoggingInterceptor,
+  RPC_QUEUE_OPTIONS,
+  RpcQueue,
 } from '@app/common';
 import { WinstonModule } from 'nest-winston';
 import authConfig from '@app/common/config/auth.config';
@@ -42,15 +44,8 @@ import { rabbitmqConfig } from './config/rabbitmq.config';
           transport: Transport.RMQ,
           options: {
             urls: [configService.get<string>('RABBITMQ_URL')],
-            queue: 'auth_queue',
-            queueOptions: {
-              durable: true,
-              arguments: {
-                'x-dead-letter-exchange': '',
-                'x-dead-letter-routing-key': 'auth_queue_retry',
-                'x-max-length': 10000,
-              },
-            },
+            queue: RpcQueue.AUTH,
+            queueOptions: RPC_QUEUE_OPTIONS,
           },
         }),
         inject: [ConfigService],

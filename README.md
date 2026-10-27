@@ -181,6 +181,19 @@ If you are evaluating the project, these are the fastest places to get signal:
 - Each service now loads its own `apps/<service>/.env` file even when started from the monorepo root.
 - Some lint warnings still exist in older parts of the codebase, but the repo now builds cleanly and the root scripts point at real apps.
 - Stripe is the production-ready payment path in this repo. PayPal is registered but intentionally returns `NotImplemented`.
+- RPC queue options live in `libs/common/src/rmq/rpc-queue.ts` and are shared by services and their clients.
+
+### One-time migration: RPC queue arguments changed
+
+The RPC queues (`<service>_queue`) no longer carry dead-letter/retry arguments. A broker that still has the old
+queues rejects the new declaration with `PRECONDITION_FAILED - inequivalent arg 'x-dead-letter-exchange'` and the
+service fails to start. Delete the old queues once (RPC requests are transient, nothing durable is lost):
+
+```bash
+docker exec flight-booking-rabbitmq sh -c 'for s in auth flight booking notification payment; do
+  for q in ${s}_queue ${s}_queue_retry ${s}_queue_dead; do rabbitmqctl -q delete_queue "$q" || true; done
+done'
+```
 
 ## Booking Flow Without Payment Service
 

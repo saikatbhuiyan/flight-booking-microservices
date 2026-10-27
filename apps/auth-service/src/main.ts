@@ -4,7 +4,7 @@ import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AuthServiceModule } from './auth-service.module';
-import { RmqSetup, resolveRabbitMqUrl } from '@app/common';
+import { RPC_QUEUE_OPTIONS, RpcQueue, resolveRabbitMqUrl } from '@app/common';
 
 async function bootstrap() {
   const logger = new Logger('AuthService');
@@ -12,10 +12,7 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
   app.enableShutdownHooks();
   const rabbitmqUrl = resolveRabbitMqUrl(configService.get<string>('RABBITMQ_URL'));
-  const queue = 'auth_queue';
-
-  // Automatically create queues for this service
-  await RmqSetup.setupQueues(configService, 'auth', 10000, 1);
+  const queue = RpcQueue.AUTH;
 
   // Global prefix for HTTP routes
   app.setGlobalPrefix('api/v1');
@@ -25,14 +22,7 @@ async function bootstrap() {
     options: {
       urls: [rabbitmqUrl],
       queue: queue,
-      queueOptions: {
-        durable: true,
-        arguments: {
-          'x-dead-letter-exchange': '',
-          'x-dead-letter-routing-key': `${queue}_retry`,
-          'x-max-length': 10000,
-        },
-      },
+      queueOptions: RPC_QUEUE_OPTIONS,
       prefetchCount: 1,
       // Request/response is at-most-once: handler errors are replied to the caller, never redelivered.
       noAck: true,

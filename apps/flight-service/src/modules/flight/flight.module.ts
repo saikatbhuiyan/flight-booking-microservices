@@ -11,6 +11,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { FlightEventHandler } from './flight.event-handler';
 import { ProcessedEvent } from '../../entities/processed-events.entity';
+import { RPC_QUEUE_OPTIONS, RpcQueue } from '@app/common';
 
 @Module({
   imports: [
@@ -35,15 +36,8 @@ import { ProcessedEvent } from '../../entities/processed-events.entity';
           transport: Transport.RMQ,
           options: {
             urls: [configService.get<string>('RABBITMQ_URL')],
-            queue: 'auth_queue',
-            queueOptions: {
-              durable: true,
-              arguments: {
-                'x-dead-letter-exchange': '',
-                'x-dead-letter-routing-key': 'auth_queue_retry',
-                'x-max-length': 10000,
-              },
-            },
+            queue: RpcQueue.AUTH,
+            queueOptions: RPC_QUEUE_OPTIONS,
           },
         }),
         inject: [ConfigService],
