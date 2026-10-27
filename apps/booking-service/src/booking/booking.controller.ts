@@ -1,6 +1,6 @@
-import { Controller, Post, Get, Put, Body, Param, Query, Req, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Put, Body, Param, Query, Req, HttpStatus, UseFilters } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
-import { MessagePatterns as MP, successResponse } from '@app/common';
+import { CommonRpcExceptionFilter, MessagePatterns as MP, successResponse } from '@app/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
 import { BookingService } from './booking.service';
 import { CreateBookingDto } from '../booking-saga/saga-orchestrator.service';
@@ -16,6 +16,7 @@ interface AuthenticatedRequest extends Request {
 @ApiTags('Bookings')
 @Controller('bookings')
 @ApiBearerAuth()
+@UseFilters(CommonRpcExceptionFilter)
 export class BookingController {
   constructor(private readonly bookingService: BookingService) {}
 

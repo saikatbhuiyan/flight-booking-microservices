@@ -10,6 +10,7 @@ import {
   ParseIntPipe,
   HttpStatus,
   HttpCode,
+  UseFilters,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
 import { MessagePattern, Payload } from '@nestjs/microservices';
@@ -19,7 +20,7 @@ import { UpdateCityDto } from '../dto/update-city.dto';
 import { QueryCityDto } from '../dto/query-city.dto';
 import { CityResponseDto } from '../dto/city-response.dto';
 import { ApiPaginatedResponse } from '../../../common/decorators/api-paginated-response.decorator';
-import { MessagePatterns as MP } from '@app/common';
+import { CommonRpcExceptionFilter, MessagePatterns as MP } from '@app/common';
 
 /**
  * Controller for City operations
@@ -27,6 +28,7 @@ import { MessagePatterns as MP } from '@app/common';
  */
 @ApiTags('Cities')
 @Controller('cities')
+@UseFilters(CommonRpcExceptionFilter)
 export class CityController {
   constructor(private readonly cityService: CityService) {}
 

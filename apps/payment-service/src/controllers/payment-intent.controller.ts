@@ -1,11 +1,11 @@
-import { Controller, Post, Get, Body, Param, Logger, Headers, Query } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, Logger, Headers, Query, UseFilters } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { PaymentService } from '../services/payment.service';
 import { CreatePaymentIntentDto } from '../dto/create-payment-intent.dto';
 import { ConfirmPaymentIntentDto } from '../dto/confirm-payment-intent.dto';
 import { QueryLedgerEntriesDto } from '../dto/query-ledger-entries.dto';
-import { MessagePatterns, successResponse } from '@app/common';
+import { CommonRpcExceptionFilter, MessagePatterns, successResponse } from '@app/common';
 
 type CreatePaymentIntentMessage =
   | CreatePaymentIntentDto
@@ -16,6 +16,7 @@ type CreatePaymentIntentMessage =
 
 @ApiTags('Payment Intents')
 @Controller('payment-intents')
+@UseFilters(CommonRpcExceptionFilter)
 export class PaymentIntentController {
   private readonly logger = new Logger(PaymentIntentController.name);
 

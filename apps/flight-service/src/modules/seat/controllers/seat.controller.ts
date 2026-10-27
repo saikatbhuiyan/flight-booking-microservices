@@ -1,11 +1,12 @@
-import { Controller, Get, Post, Body, Param, Delete, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete, ParseIntPipe, UseFilters } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { SeatService } from '../services/seat.service';
-import { CreateSeatDto, BulkCreateSeatsDto, MessagePatterns as MP } from '@app/common';
+import { CommonRpcExceptionFilter, CreateSeatDto, BulkCreateSeatsDto, MessagePatterns as MP } from '@app/common';
 
 @ApiTags('Seats')
 @Controller('seats')
+@UseFilters(CommonRpcExceptionFilter)
 export class SeatController {
   constructor(private readonly seatService: SeatService) {}
 

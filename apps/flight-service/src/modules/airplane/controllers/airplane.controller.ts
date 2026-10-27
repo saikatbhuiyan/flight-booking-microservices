@@ -10,6 +10,7 @@ import {
   ParseIntPipe,
   HttpStatus,
   HttpCode,
+  UseFilters,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { MessagePattern, Payload } from '@nestjs/microservices';
@@ -17,10 +18,11 @@ import { AirplaneService } from '../services/airplane.service';
 import { CreateAirplaneDto, UpdateAirplaneDto, QueryAirplaneDto } from '@app/common';
 import { AirplaneResponseDto } from '../dto/airplane-response.dto';
 import { ApiPaginatedResponse } from '../../../common/decorators/api-paginated-response.decorator';
-import { MessagePatterns as MP } from '@app/common';
+import { CommonRpcExceptionFilter, MessagePatterns as MP } from '@app/common';
 
 @ApiTags('Airplanes')
 @Controller('airplanes')
+@UseFilters(CommonRpcExceptionFilter)
 export class AirplaneController {
   constructor(private readonly airplaneService: AirplaneService) {}
 
