@@ -1,16 +1,17 @@
-import { Controller, UseFilters } from '@nestjs/common';
+import { Controller, UseFilters, UsePipes } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { AirportService } from '../services/airport.service';
 import { CreateAirportDto } from '../dto/create-airport.dto';
 import { UpdateAirportDto } from '../dto/update-airport.dto';
 import { QueryAirportDto } from '../dto/query-airport.dto';
-import { CommonRpcExceptionFilter, MessagePatterns as MP } from '@app/common';
+import { CommonRpcExceptionFilter, RpcValidationPipe, MessagePatterns as MP } from '@app/common';
 
 /**
  * RabbitMQ handlers for Airport operations. Clients reach these through the API gateway only.
  */
 @Controller()
 @UseFilters(CommonRpcExceptionFilter)
+@UsePipes(RpcValidationPipe)
 export class AirportController {
   constructor(private readonly airportService: AirportService) {}
 

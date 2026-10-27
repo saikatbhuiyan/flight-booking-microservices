@@ -1,16 +1,17 @@
-import { Controller, UseFilters } from '@nestjs/common';
+import { Controller, UseFilters, UsePipes } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { CityService } from '../services/city.service';
 import { CreateCityDto } from '../dto/create-city.dto';
 import { UpdateCityDto } from '../dto/update-city.dto';
 import { QueryCityDto } from '../dto/query-city.dto';
-import { CommonRpcExceptionFilter, MessagePatterns as MP } from '@app/common';
+import { CommonRpcExceptionFilter, RpcValidationPipe, MessagePatterns as MP } from '@app/common';
 
 /**
  * RabbitMQ handlers for City operations. Clients reach these through the API gateway only.
  */
 @Controller()
 @UseFilters(CommonRpcExceptionFilter)
+@UsePipes(RpcValidationPipe)
 export class CityController {
   constructor(private readonly cityService: CityService) {}
 

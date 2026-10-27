@@ -24,4 +24,5 @@ export * from './utils';
 export * from './dto';
 export * from './guards';
 export * from './rmq/rpc-queue';
+export * from './pipes/rpc-validation.pipe';
 export * from './middleware/correlation-id.middleware';

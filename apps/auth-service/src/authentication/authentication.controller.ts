@@ -1,13 +1,14 @@
-import { Controller, Logger, UseFilters } from '@nestjs/common';
+import { Controller, Logger, UseFilters, UsePipes } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { AuthenticationService } from './authentication.service';
+import { SignInMessageDto } from './dto/sign-in-message.dto';
 import {
   MessagePatterns as MP,
   RefreshTokenDto,
-  SignInDto,
   SignOutDto,
   SignUpDto,
   CommonRpcExceptionFilter,
+  RpcValidationPipe,
 } from '@app/common';
 
 /**
@@ -15,6 +16,7 @@ import {
  */
 @Controller()
 @UseFilters(CommonRpcExceptionFilter)
+@UsePipes(RpcValidationPipe)
 export class AuthMessageController {
   private readonly logger = new Logger(AuthMessageController.name);
 
@@ -27,9 +29,10 @@ export class AuthMessageController {
   }
 
   @MessagePattern(MP.AUTH_LOGIN)
-  login(@Payload() data: SignInDto) {
+  login(@Payload() data: SignInMessageDto) {
     this.logger.debug(`RMQ: Logging in ${data.email}`);
-    return this.authService.signIn(data);
+    const { ip, ...credentials } = data;
+    return this.authService.signIn(credentials, ip);
   }
 
   @MessagePattern(MP.AUTH_REFRESH)

@@ -1,6 +1,6 @@
-import { Controller, UseFilters } from '@nestjs/common';
+import { Controller, UseFilters, UsePipes } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
-import { CommonRpcExceptionFilter, MessagePatterns as MP } from '@app/common';
+import { CommonRpcExceptionFilter, RpcValidationPipe, MessagePatterns as MP } from '@app/common';
 import { BookingService } from './booking.service';
 import { CreateBookingDto } from '../booking-saga/saga-orchestrator.service';
 
@@ -10,6 +10,7 @@ import { CreateBookingDto } from '../booking-saga/saga-orchestrator.service';
  */
 @Controller()
 @UseFilters(CommonRpcExceptionFilter)
+@UsePipes(RpcValidationPipe)
 export class BookingController {
   constructor(private readonly bookingService: BookingService) {}
 

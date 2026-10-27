@@ -1,13 +1,20 @@
-import { Controller, UseFilters } from '@nestjs/common';
+import { Controller, UseFilters, UsePipes } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { SeatService } from '../services/seat.service';
-import { CommonRpcExceptionFilter, CreateSeatDto, BulkCreateSeatsDto, MessagePatterns as MP } from '@app/common';
+import {
+  CommonRpcExceptionFilter,
+  RpcValidationPipe,
+  CreateSeatDto,
+  BulkCreateSeatsDto,
+  MessagePatterns as MP,
+} from '@app/common';
 
 /**
  * RabbitMQ handlers for Seat operations. Clients reach these through the API gateway only.
  */
 @Controller()
 @UseFilters(CommonRpcExceptionFilter)
+@UsePipes(RpcValidationPipe)
 export class SeatController {
   constructor(private readonly seatService: SeatService) {}
 
