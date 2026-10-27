@@ -4,7 +4,10 @@ import { HealthModule, CommonModule, GlobalExceptionFilter, winstonLoggerConfig 
 import { WinstonModule } from 'nest-winston';
 import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { NotificationService } from './notification-service.service';
-import { NotificationServiceController } from './notification-service.controller';
+import { NotificationEventsHandler } from './notification-events.handler';
+import { LogNotificationSender, NOTIFICATION_SENDER } from './notification.sender';
+import { RabbitMQModule } from '@golevelup/nestjs-rabbitmq';
+import { rabbitmqConfig } from './config/rabbitmq.config';
 import { LoggingInterceptor } from '@app/common';
 
 @Module({
@@ -14,10 +17,10 @@ import { LoggingInterceptor } from '@app/common';
       envFilePath: ['apps/notification-service/.env', '.env'],
     }),
     CommonModule,
+    RabbitMQModule.forRoot(rabbitmqConfig),
     WinstonModule.forRoot(winstonLoggerConfig),
     HealthModule,
   ],
-  controllers: [NotificationServiceController],
   providers: [
     {
       provide: APP_INTERCEPTOR,
@@ -28,6 +31,8 @@ import { LoggingInterceptor } from '@app/common';
       useClass: GlobalExceptionFilter,
     },
     NotificationService,
+    NotificationEventsHandler,
+    { provide: NOTIFICATION_SENDER, useClass: LogNotificationSender },
   ],
 })
 export class NotificationServiceModule {}
