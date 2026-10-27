@@ -11,6 +11,7 @@ import { CityController } from './controllers/city.controller';
 import { AirportController } from './controllers/airport.controller';
 import { AirplaneController } from './controllers/airplane.controller';
 import { SeatController } from './controllers/seat.controller';
+import { PaymentController } from './controllers/payment.controller';
 import { RolesGuard } from './guards/roles.guard';
 import {
   CookieService,
@@ -86,6 +87,19 @@ import { RateLimiterModule } from '@app/rate-limiter';
         inject: [ConfigService],
       },
       {
+        name: 'PAYMENT_SERVICE',
+        imports: [ConfigModule],
+        useFactory: (configService: ConfigService) => ({
+          transport: Transport.RMQ,
+          options: {
+            urls: [resolveRabbitMqUrl(configService.get<string>('RABBITMQ_URL'))],
+            queue: RpcQueue.PAYMENT,
+            queueOptions: RPC_QUEUE_OPTIONS,
+          },
+        }),
+        inject: [ConfigService],
+      },
+      {
         name: 'BOOKING_SERVICE',
         imports: [ConfigModule],
         useFactory: (configService: ConfigService) => ({
@@ -110,6 +124,7 @@ import { RateLimiterModule } from '@app/rate-limiter';
     AirportController,
     AirplaneController,
     SeatController,
+    PaymentController,
     GatewayHealthController,
   ],
   providers: [

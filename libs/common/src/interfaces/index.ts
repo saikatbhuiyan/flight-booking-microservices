@@ -179,9 +179,11 @@ export enum MessagePatterns {
   // Payment patterns
   PAYMENT_CREATE_INTENT = 'payment.create_intent',
   PAYMENT_GET_INTENT = 'payment.get_intent',
+  PAYMENT_GET_INTENT_BY_BOOKING = 'payment.get_intent_by_booking',
   PAYMENT_CONFIRM_INTENT = 'payment.confirm_intent',
   PAYMENT_CREATE_REFUND = 'payment.create_refund',
   PAYMENT_GET_REFUNDS = 'payment.get_refunds',
+  PAYMENT_GET_LEDGER_ENTRIES = 'payment.get_ledger_entries',
 }
 
 // Events for async communication

@@ -1,35 +1,17 @@
-import { Controller, Post, Get, Body, Query, Logger, Headers, UseFilters } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { Controller, Logger, UseFilters } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { RefundService } from '../services/refund.service';
-import { CreateRefundDto } from '../dto/create-refund.dto';
-import { CommonRpcExceptionFilter, MessagePatterns, successResponse } from '@app/common';
+import { CommonRpcExceptionFilter, CreateRefundDto, MessagePatterns } from '@app/common';
 
-@ApiTags('Refunds')
-@Controller('refunds')
+/**
+ * RabbitMQ handlers for refunds. Clients reach these through the API gateway only.
+ */
+@Controller()
 @UseFilters(CommonRpcExceptionFilter)
 export class RefundController {
   private readonly logger = new Logger(RefundController.name);
 
   constructor(private readonly refundService: RefundService) {}
-
-  @Post()
-  @ApiOperation({ summary: 'Create a refund' })
-  @ApiResponse({ status: 201, description: 'Refund created successfully' })
-  @ApiResponse({ status: 400, description: 'Invalid request' })
-  async createRefund(@Body() dto: CreateRefundDto, @Headers('idempotency-key') idempotencyKey?: string) {
-    this.logger.log(`Creating refund for payment ${dto.paymentId}`);
-    const result = await this.refundService.createRefund(dto, idempotencyKey);
-    return successResponse('refund.create.success', result);
-  }
-
-  @Get()
-  @ApiOperation({ summary: 'Get refunds by booking ID' })
-  @ApiResponse({ status: 200, description: 'Refunds found' })
-  async getRefundsByBooking(@Query('bookingId') bookingId: number) {
-    const result = await this.refundService.getRefundsByBooking(bookingId);
-    return successResponse('refund.list.success', result);
-  }
 
   @MessagePattern(MessagePatterns.PAYMENT_CREATE_REFUND)
   async handleCreateRefund(@Payload() data: { dto: CreateRefundDto; idempotencyKey?: string } | CreateRefundDto) {
