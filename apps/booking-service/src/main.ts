@@ -4,7 +4,7 @@ import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BookingServiceModule } from './booking-service.module';
-import { CommonRpcExceptionFilter, RmqSetup, resolveRabbitMqUrl } from '@app/common';
+import { CommonRpcExceptionFilter, RPC_QUEUE_OPTIONS, RpcQueue, resolveRabbitMqUrl } from '@app/common';
 import { initializeTracing } from '@app/telemetry';
 
 async function bootstrap() {
@@ -19,24 +19,14 @@ async function bootstrap() {
   app.setGlobalPrefix('api/v1');
 
   const rabbitmqUrl = resolveRabbitMqUrl(configService.get<string>('RABBITMQ_URL'));
-  const queue = 'booking_queue';
-
-  // Automatically create queues for this service
-  await RmqSetup.setupQueues(configService, 'booking', 10000, 1);
+  const queue = RpcQueue.BOOKING;
 
   app.connectMicroservice<MicroserviceOptions>({
     transport: Transport.RMQ,
     options: {
       urls: [rabbitmqUrl],
       queue,
-      queueOptions: {
-        durable: true,
-        arguments: {
-          'x-dead-letter-exchange': '',
-          'x-dead-letter-routing-key': `${queue}_retry`,
-          'x-max-length': 10000,
-        },
-      },
+      queueOptions: RPC_QUEUE_OPTIONS,
       prefetchCount: 1,
       noAck: true,
     },
