@@ -5,7 +5,6 @@ import { AuthenticationService } from './authentication.service';
 import {
   MessagePatterns as MP,
   RefreshTokenDto,
-  RmqHelper,
   SignInDto,
   SignOutDto,
   SignUpDto,
@@ -35,10 +34,8 @@ export class AuthMessageController {
   })
   async register(@Payload() data: SignUpDto, @Ctx() context?: RmqContext) {
     if (context && typeof context.getChannelRef === 'function') {
-      return RmqHelper.handleAck(context, async () => {
-        this.logger.debug(`RMQ: Registering ${data.email}`);
-        return this.authService.register(data);
-      });
+      this.logger.debug(`RMQ: Registering ${data.email}`);
+      return this.authService.register(data);
     }
     this.logger.debug(`HTTP: Registering ${data.email}`);
     const result = await this.authService.register(data);
@@ -57,10 +54,8 @@ export class AuthMessageController {
   })
   login(@Payload() data: SignInDto, @Req() req?: Request, @Ctx() context?: RmqContext) {
     if (context && typeof context.getChannelRef === 'function') {
-      return RmqHelper.handleAck(context, async () => {
-        this.logger.debug(`RMQ: Logging in ${data.email}`);
-        return this.authService.signIn(data);
-      });
+      this.logger.debug(`RMQ: Logging in ${data.email}`);
+      return this.authService.signIn(data);
     }
     this.logger.debug(`HTTP: Logging in ${data.email}`);
     return this.authService.signIn(data, req?.ip);
@@ -78,9 +73,7 @@ export class AuthMessageController {
   })
   async refresh(@Payload() data: RefreshTokenDto, @Ctx() context?: RmqContext) {
     if (context && typeof context.getChannelRef === 'function') {
-      return RmqHelper.handleAck(context, async () => {
-        return this.authService.refreshTokens(data);
-      });
+      return this.authService.refreshTokens(data);
     }
     const result = await this.authService.refreshTokens(data);
     return ApiResponseDto.success(result, 'auth.refresh.success');
@@ -95,19 +88,12 @@ export class AuthMessageController {
     description: 'Logged out successfully',
     type: ApiResponseDto,
   })
-  signOut(@Payload() data: SignOutDto, @Ctx() context?: RmqContext) {
-    if (context && typeof context.getChannelRef === 'function') {
-      return RmqHelper.handleAck(context, async () => {
-        return this.authService.signOut(data);
-      });
-    }
+  signOut(@Payload() data: SignOutDto) {
     return this.authService.signOut(data);
   }
 
   @MessagePattern(MP.AUTH_VALIDATE)
-  validateUser(@Payload() data: any, @Ctx() context: RmqContext) {
-    return RmqHelper.handleAck(context, async () => {
-      return this.authService.validateUser(data);
-    });
+  validateUser(@Payload() data: any) {
+    return this.authService.validateUser(data);
   }
 }

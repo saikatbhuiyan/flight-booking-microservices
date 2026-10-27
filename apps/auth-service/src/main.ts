@@ -34,7 +34,8 @@ async function bootstrap() {
         },
       },
       prefetchCount: 1,
-      noAck: false, // manual ack pattern
+      // Request/response is at-most-once: handler errors are replied to the caller, never redelivered.
+      noAck: true,
     },
   });
 
