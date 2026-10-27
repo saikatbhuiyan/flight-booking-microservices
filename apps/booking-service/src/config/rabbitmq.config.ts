@@ -26,14 +26,4 @@ export const rabbitmqConfig: RabbitMQConfig = {
       default: true,
     },
   },
-  queues: [
-    {
-      name: 'booking-service.events',
-      exchange: 'booking.events',
-      routingKey: 'booking.*',
-      options: {
-        durable: true,
-      },
-    },
-  ],
 };
