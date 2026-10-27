@@ -1,11 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { trace, context as otelContext, SpanStatusCode } from '@opentelemetry/api';
 import { ProcessedEvent } from '../../entities/processed-events.entity';
 import { Flight } from '../../entities/flight.entity';
 import { EventPatterns } from '@app/common';
+import { SubscribeSeatEvent } from '../../config/rabbitmq.config';
 
 type FlightSeatEvent = {
   flightId: number;
@@ -39,11 +39,7 @@ export class FlightEventHandler {
     private readonly dataSource: DataSource,
   ) {}
 
-  @RabbitSubscribe({
-    exchange: 'booking.events',
-    routingKey: EventPatterns.FLIGHT_RESERVE_SEATS,
-    queue: 'flight-service.reserve-seats',
-  })
+  @SubscribeSeatEvent('reserve')
   async handleReserveSeats(msg: FlightSeatEvent): Promise<void> {
     const eventId = msg._metadata?.eventId;
     const traceId = msg._metadata?.traceId;
@@ -111,11 +107,7 @@ export class FlightEventHandler {
     }
   }
 
-  @RabbitSubscribe({
-    exchange: 'booking.events',
-    routingKey: EventPatterns.FLIGHT_CONFIRM_SEATS,
-    queue: 'flight-service.confirm-seats',
-  })
+  @SubscribeSeatEvent('confirm')
   async handleConfirmSeats(msg: FlightSeatEvent): Promise<void> {
     const eventId = msg._metadata?.eventId;
 
@@ -158,11 +150,7 @@ export class FlightEventHandler {
     }
   }
 
-  @RabbitSubscribe({
-    exchange: 'booking.events',
-    routingKey: EventPatterns.FLIGHT_RELEASE_SEATS,
-    queue: 'flight-service.release-seats',
-  })
+  @SubscribeSeatEvent('release')
   async handleReleaseSeats(msg: FlightSeatEvent): Promise<void> {
     const eventId = msg._metadata?.eventId;
 
