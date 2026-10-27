@@ -1,12 +1,13 @@
-import { Controller, Post, Get, Body, Query, Logger, Headers } from '@nestjs/common';
+import { Controller, Post, Get, Body, Query, Logger, Headers, UseFilters } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { RefundService } from '../services/refund.service';
 import { CreateRefundDto } from '../dto/create-refund.dto';
-import { MessagePatterns, successResponse } from '@app/common';
+import { CommonRpcExceptionFilter, MessagePatterns, successResponse } from '@app/common';
 
 @ApiTags('Refunds')
 @Controller('refunds')
+@UseFilters(CommonRpcExceptionFilter)
 export class RefundController {
   private readonly logger = new Logger(RefundController.name);
 
