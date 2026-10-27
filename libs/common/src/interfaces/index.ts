@@ -133,6 +133,8 @@ export enum MessagePatterns {
   CITY_UPDATE = 'city.update',
   CITY_DELETE = 'city.delete',
   CITY_STATISTICS = 'city.statistics',
+  CITY_FIND_ALL_WITH_AIRPORT_COUNT = 'city.findAllWithAirportCount',
+  CITY_RESTORE = 'city.restore',
 
   // Airport patterns
   AIRPORT_CREATE = 'airport.create',
@@ -141,6 +143,7 @@ export enum MessagePatterns {
   AIRPORT_SEARCH = 'airport.search',
   AIRPORT_UPDATE = 'airport.update',
   AIRPORT_DELETE = 'airport.delete',
+  AIRPORT_STATISTICS = 'airport.statistics',
 
   // Airplane patterns
   AIRPLANE_CREATE = 'airplane.create',

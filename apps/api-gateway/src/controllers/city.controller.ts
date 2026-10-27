@@ -64,6 +64,15 @@ export class CityController {
     return ApiResponseDto.success(result, 'city.list.success');
   }
 
+  @Get('with-airport-count')
+  @Roles(Role.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get all cities with their airport count' })
+  async findAllWithAirportCount(@Query() queryDto: QueryCityDto) {
+    const result = await this.callService(MP.CITY_FIND_ALL_WITH_AIRPORT_COUNT, queryDto);
+    return ApiResponseDto.success(result, 'city.list.success');
+  }
+
   @Get('statistics')
   @Roles(Role.ADMIN)
   @ApiBearerAuth()
@@ -105,6 +114,16 @@ export class CityController {
   async remove(@Param('id', ParseIntPipe) id: number) {
     await this.callService(MP.CITY_DELETE, { id });
     return ApiResponseDto.success(null, 'city.delete.success');
+  }
+
+  @Patch(':id/restore')
+  @Roles(Role.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Restore a soft-deleted city' })
+  @ApiParam({ name: 'id', description: 'City ID' })
+  async restore(@Param('id', ParseIntPipe) id: number) {
+    const result = await this.callService(MP.CITY_RESTORE, { id });
+    return ApiResponseDto.success(result, 'city.restore.success');
   }
 
   private async callService<TResult, TInput>(pattern: string, data: TInput): Promise<TResult> {

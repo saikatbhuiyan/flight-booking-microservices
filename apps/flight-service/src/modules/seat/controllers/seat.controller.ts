@@ -1,43 +1,16 @@
-import { Controller, Get, Post, Body, Param, Delete, ParseIntPipe, UseFilters } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { Controller, UseFilters } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { SeatService } from '../services/seat.service';
 import { CommonRpcExceptionFilter, CreateSeatDto, BulkCreateSeatsDto, MessagePatterns as MP } from '@app/common';
 
-@ApiTags('Seats')
-@Controller('seats')
+/**
+ * RabbitMQ handlers for Seat operations. Clients reach these through the API gateway only.
+ */
+@Controller()
 @UseFilters(CommonRpcExceptionFilter)
 export class SeatController {
   constructor(private readonly seatService: SeatService) {}
 
-  @Post()
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Create a new seat' })
-  async create(@Body() createSeatDto: CreateSeatDto) {
-    return this.seatService.create(createSeatDto);
-  }
-
-  @Post('bulk')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Bulk create seats for an airplane' })
-  async bulkCreate(@Body() bulkDto: BulkCreateSeatsDto) {
-    return this.seatService.bulkCreate(bulkDto);
-  }
-
-  @Get('airplane/:airplaneId')
-  @ApiOperation({ summary: 'Get all seats for an airplane' })
-  async findByAirplane(@Param('airplaneId', ParseIntPipe) airplaneId: number) {
-    return this.seatService.findByAirplane(airplaneId);
-  }
-
-  @Delete(':id')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Delete a seat' })
-  async remove(@Param('id', ParseIntPipe) id: number) {
-    return this.seatService.remove(id);
-  }
-
-  // RabbitMQ Handlers
   @MessagePattern(MP.SEAT_CREATE)
   handleCreate(@Payload() createSeatDto: CreateSeatDto) {
     return this.seatService.create(createSeatDto);

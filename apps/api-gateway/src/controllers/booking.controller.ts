@@ -9,6 +9,7 @@ import {
   JwtAuthGuard,
   createHttpExceptionFromRpcError,
 } from '@app/common';
+import { RateLimit } from '@app/rate-limiter';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags, ApiParam } from '@nestjs/swagger';
 
 @ApiTags('Bookings')
@@ -21,6 +22,7 @@ export class BookingController {
   constructor(@Inject('BOOKING_SERVICE') private readonly bookingClient: ClientProxy) {}
 
   @Post()
+  @RateLimit({ points: 3, duration: 60, blockDuration: 300 })
   @ApiOperation({ summary: 'Create a new flight booking' })
   @ApiResponse({
     status: HttpStatus.CREATED,
@@ -36,6 +38,7 @@ export class BookingController {
   }
 
   @Post(':bookingId/complete')
+  @RateLimit({ points: 5, duration: 60 })
   @ApiOperation({ summary: 'Complete booking after payment' })
   async completeBooking(
     @Param('bookingId') bookingId: string,
@@ -51,6 +54,7 @@ export class BookingController {
   }
 
   @Put(':bookingId/cancel')
+  @RateLimit({ points: 5, duration: 60 })
   @ApiOperation({ summary: 'Cancel a booking' })
   async cancelBooking(
     @Param('bookingId') bookingId: string,
@@ -66,6 +70,7 @@ export class BookingController {
   }
 
   @Put(':bookingId/extend')
+  @RateLimit({ points: 2, duration: 60 })
   @ApiOperation({ summary: 'Extend booking expiry' })
   async extendBooking(@Param('bookingId') bookingId: string, @CurrentUser() user: any) {
     const result = await this.callService(MP.BOOKING_EXTEND, {

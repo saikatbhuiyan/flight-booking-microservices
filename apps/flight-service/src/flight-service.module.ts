@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DatabaseModule } from '@app/database';
 import {
@@ -8,12 +8,9 @@ import {
   GlobalExceptionFilter,
   winstonLoggerConfig,
   LoggingInterceptor,
-  RPC_QUEUE_OPTIONS,
-  RpcQueue,
 } from '@app/common';
 import { WinstonModule } from 'nest-winston';
 import authConfig from '@app/common/config/auth.config';
-import { ClientsModule, Transport } from '@nestjs/microservices';
 import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { Flight } from './entities/flight.entity';
 import { City } from './entities/city.entity';
@@ -36,21 +33,6 @@ import { rabbitmqConfig } from './config/rabbitmq.config';
       load: [authConfig],
       envFilePath: ['apps/flight-service/.env', '.env'],
     }),
-    ClientsModule.registerAsync([
-      {
-        name: 'AUTH_SERVICE',
-        imports: [ConfigModule],
-        useFactory: (configService: ConfigService) => ({
-          transport: Transport.RMQ,
-          options: {
-            urls: [configService.get<string>('RABBITMQ_URL')],
-            queue: RpcQueue.AUTH,
-            queueOptions: RPC_QUEUE_OPTIONS,
-          },
-        }),
-        inject: [ConfigService],
-      },
-    ]),
     DatabaseModule.forRoot(
       [Flight, City, Airport, Airplane, Seat, ProcessedEvent],
       [__dirname + '/migrations/*.{ts,js}'],
