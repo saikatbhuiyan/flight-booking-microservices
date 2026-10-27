@@ -206,6 +206,13 @@ docker exec flight-booking-rabbitmq sh -c 'for s in auth flight booking notifica
 done'
 ```
 
+`booking-service.events` was bound to `booking.*` but never consumed, so it holds every booking event ever
+published. It is no longer declared; removing the declaration does not unbind it, so delete it once:
+
+```bash
+docker exec flight-booking-rabbitmq rabbitmqctl delete_queue booking-service.events
+```
+
 ## Booking Flow Without Payment Service
 
 For local development, `booking-service` can finish the full booking flow without `payment-service`.
