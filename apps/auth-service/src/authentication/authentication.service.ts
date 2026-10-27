@@ -37,7 +37,13 @@ export class AuthenticationService {
       throw exception;
     }
 
-    const user = this.usersRepository.create(registerDto);
+    // Explicit fields: the RMQ payload is not validated, so never let it set role/isActive/isLocked.
+    const user = this.usersRepository.create({
+      firstName: registerDto.firstName,
+      lastName: registerDto.lastName,
+      email: registerDto.email,
+      role: Role.USER,
+    });
     user.password = await this.hashingService.hash(registerDto.password);
     await this.usersRepository.save(user);
 
@@ -82,7 +88,8 @@ export class AuthenticationService {
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(
-        { id: user.id, email: user.email, roles: [Role.ADMIN] },
+        // No role claim: roles are resolved from the database in validateUser on every request.
+        { id: user.id, email: user.email },
         {
           secret: this.configService.get<string>('jwt.secret'),
           expiresIn: this.configService.get<number>('jwt.accessTokenTtl'),
@@ -173,6 +180,11 @@ export class AuthenticationService {
    * Validate user for JWT guard
    */
   async validateUser(payload: any) {
+    // TypeORM drops undefined where-values, so a missing id would otherwise match on email alone.
+    if (!payload?.id) {
+      throw this.createUnauthorizedException('Unauthorized', 'auth.unauthorized');
+    }
+
     const user = await this.usersRepository.findOne({
       where: { id: payload.id, email: payload.email },
     });
@@ -186,7 +198,7 @@ export class AuthenticationService {
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName,
-      roles: [Role.USER],
+      role: user.role,
     };
   }
 

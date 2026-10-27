@@ -185,6 +185,15 @@ If you are evaluating the project, these are the fastest places to get signal:
 - The API gateway is the only public API. Backend services serve RabbitMQ handlers plus `/api/v1/health` over HTTP;
   their business endpoints are reachable only through the gateway, which applies JWT auth, roles, and rate limits.
 
+### Admin users
+
+Roles are stored on `users.role` in `auth_db` (default `user`) and read on every gateway request, so a change takes
+effect immediately. There is no self-service promotion; promote an account directly:
+
+```bash
+docker exec flight-booking-postgres psql -U postgres -d auth_db -c "UPDATE users SET role = 'admin' WHERE email = 'you@example.com';"
+```
+
 ### One-time migration: RPC queue arguments changed
 
 The RPC queues (`<service>_queue`) no longer carry dead-letter/retry arguments. A broker that still has the old
