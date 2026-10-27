@@ -5,7 +5,6 @@ jest.mock('uuid', () => ({
 
 import { Test, TestingModule } from '@nestjs/testing';
 import { ApiResponseDto } from '@app/common/utils/api-response.dto';
-import { RmqHelper } from '@app/common/utils/rmq.helper';
 import { AuthMessageController } from './authentication.controller';
 import { AuthenticationService } from './authentication.service';
 
@@ -66,10 +65,7 @@ describe('AuthMessageController', () => {
     );
   });
 
-  it('delegates RMQ register calls through the ack helper', async () => {
-    const handleAckSpy = jest
-      .spyOn(RmqHelper, 'handleAck')
-      .mockImplementation(async (_context, callback) => callback());
+  it('returns the raw service result for RMQ register calls', async () => {
     authService.register.mockResolvedValue({
       id: 1,
       email: 'jane@example.com',
@@ -77,7 +73,7 @@ describe('AuthMessageController', () => {
       lastName: 'Doe',
     });
 
-    await controller.register(
+    const result = await controller.register(
       {
         firstName: 'Jane',
         lastName: 'Doe',
@@ -90,7 +86,7 @@ describe('AuthMessageController', () => {
       } as never,
     );
 
-    expect(handleAckSpy).toHaveBeenCalled();
+    expect(result).toEqual({ id: 1, email: 'jane@example.com', firstName: 'Jane', lastName: 'Doe' });
     expect(authService.register).toHaveBeenCalled();
   });
 
@@ -119,7 +115,6 @@ describe('AuthMessageController', () => {
   });
 
   it('does not pass request IP through the RMQ login path', async () => {
-    jest.spyOn(RmqHelper, 'handleAck').mockImplementation(async (_context, callback) => callback());
     authService.signIn.mockResolvedValue({ accessToken: 'access', refreshToken: 'refresh' });
 
     await controller.login(
@@ -153,8 +148,7 @@ describe('AuthMessageController', () => {
     );
   });
 
-  it('delegates sign-out and user validation through the ack helper', async () => {
-    jest.spyOn(RmqHelper, 'handleAck').mockImplementation(async (_context, callback) => callback());
+  it('delegates sign-out and user validation to the auth service', async () => {
     authService.validateUser.mockResolvedValue({
       id: 1,
       email: 'jane@example.com',
@@ -163,21 +157,12 @@ describe('AuthMessageController', () => {
       roles: [],
     });
 
-    await controller.signOut(
-      {
-        userId: 1,
-        deviceId: 'device-1',
-        clientType: undefined,
-      },
-      {
-        getChannelRef: jest.fn(),
-        getMessage: jest.fn(),
-      } as never,
-    );
-    await controller.validateUser({ id: 1, email: 'jane@example.com' }, {
-      getChannelRef: jest.fn(),
-      getMessage: jest.fn(),
-    } as never);
+    await controller.signOut({
+      userId: 1,
+      deviceId: 'device-1',
+      clientType: undefined,
+    });
+    await controller.validateUser({ id: 1, email: 'jane@example.com' });
 
     expect(authService.signOut).toHaveBeenCalledWith(expect.objectContaining({ userId: 1 }));
     expect(authService.validateUser).toHaveBeenCalledWith({ id: 1, email: 'jane@example.com' });
