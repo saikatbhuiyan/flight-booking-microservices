@@ -1,8 +1,14 @@
-import { Controller, Logger, UseFilters } from '@nestjs/common';
+import { Controller, Logger, UseFilters, UsePipes } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { PaymentService } from '../services/payment.service';
 import { CreatePaymentIntentDto } from '../dto/create-payment-intent.dto';
-import { CommonRpcExceptionFilter, ConfirmPaymentIntentDto, MessagePatterns, QueryLedgerEntriesDto } from '@app/common';
+import {
+  CommonRpcExceptionFilter,
+  RpcValidationPipe,
+  ConfirmPaymentIntentDto,
+  MessagePatterns,
+  QueryLedgerEntriesDto,
+} from '@app/common';
 
 type CreatePaymentIntentMessage =
   | CreatePaymentIntentDto
@@ -17,6 +23,7 @@ type CreatePaymentIntentMessage =
  */
 @Controller()
 @UseFilters(CommonRpcExceptionFilter)
+@UsePipes(RpcValidationPipe)
 export class PaymentIntentController {
   private readonly logger = new Logger(PaymentIntentController.name);
 

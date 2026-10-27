@@ -58,7 +58,15 @@ describe('AuthMessageController', () => {
       }),
     ).resolves.toEqual({ accessToken: 'access', refreshToken: 'refresh' });
 
-    expect(authService.signIn).toHaveBeenCalledWith(expect.objectContaining({ email: 'jane@example.com' }));
+    expect(authService.signIn).toHaveBeenCalledWith(expect.objectContaining({ email: 'jane@example.com' }), undefined);
+  });
+
+  it('passes the client IP from the gateway to the audit trail, not as a credential field', async () => {
+    authService.signIn.mockResolvedValue({ accessToken: 'access', refreshToken: 'refresh' });
+
+    await controller.login({ email: 'jane@example.com', password: 'Password123!', deviceId: 'd1', ip: '10.0.0.9' });
+
+    expect(authService.signIn).toHaveBeenCalledWith(expect.not.objectContaining({ ip: expect.anything() }), '10.0.0.9');
   });
 
   it('returns the raw service result for refresh', async () => {

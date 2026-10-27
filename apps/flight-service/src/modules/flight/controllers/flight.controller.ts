@@ -1,4 +1,4 @@
-import { Controller, UseFilters } from '@nestjs/common';
+import { Controller, UseFilters, UsePipes } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { FlightService } from '../services/flight.service';
 import {
@@ -6,6 +6,7 @@ import {
   SharedCreateFlightDto,
   SharedSearchFlightDto,
   CommonRpcExceptionFilter,
+  RpcValidationPipe,
 } from '@app/common';
 
 /**
@@ -13,6 +14,7 @@ import {
  */
 @Controller()
 @UseFilters(CommonRpcExceptionFilter)
+@UsePipes(RpcValidationPipe)
 export class FlightController {
   constructor(private readonly flightService: FlightService) {}
 

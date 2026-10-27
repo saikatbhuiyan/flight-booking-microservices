@@ -1,13 +1,14 @@
-import { Controller, Logger, UseFilters } from '@nestjs/common';
+import { Controller, Logger, UseFilters, UsePipes } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { RefundService } from '../services/refund.service';
-import { CommonRpcExceptionFilter, CreateRefundDto, MessagePatterns } from '@app/common';
+import { CommonRpcExceptionFilter, RpcValidationPipe, CreateRefundDto, MessagePatterns } from '@app/common';
 
 /**
  * RabbitMQ handlers for refunds. Clients reach these through the API gateway only.
  */
 @Controller()
 @UseFilters(CommonRpcExceptionFilter)
+@UsePipes(RpcValidationPipe)
 export class RefundController {
   private readonly logger = new Logger(RefundController.name);
 
