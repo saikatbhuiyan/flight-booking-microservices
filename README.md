@@ -465,7 +465,10 @@ npm run migration:revert:booking
 | AWS_ACCESS_KEY_ID | AWS access key | test (LocalStack) |
 | AWS_SECRET_ACCESS_KEY | AWS secret key | test (LocalStack) |
 | AWS_S3_BUCKET | S3 bucket name | flight-booking-bucket |
-| AWS_ENDPOINT | S3 endpoint | http://localstack:4566 |
+| **Notifications** (notification-service) |
+| NOTIFICATION_PROVIDER | `log` (write notifications to the log) or `ses` (email via Amazon SES) | log |
+| NOTIFICATION_FROM_EMAIL | Verified SES sender; required when the provider is `ses` | — (use `no-reply@flight-booking.local` with LocalStack) |
+| AWS_ENDPOINT | S3/SES endpoint (LocalStack) | http://localstack:4566 |
 | **Observability** |
 | OTEL_EXPORTER_OTLP_ENDPOINT | OpenTelemetry endpoint | http://tempo:4318/v1/traces |
 | **Rate Limiting** |
