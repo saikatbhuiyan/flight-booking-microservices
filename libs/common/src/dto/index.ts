@@ -2,9 +2,12 @@ export * from './auth/sign-up.dto';
 export * from './auth/sign-in.dto';
 export * from './auth/sign-out.dto';
 export * from './auth/refresh-token.dto';
+export * from './auth/validate-token-message.dto';
 export * from './flight/flight.dto';
 export * from './flight/reserve-flight-seats.dto';
+export * from './flight/catalog-messages.dto';
 export * from './booking/create-booking.dto';
+export * from './booking/booking-messages.dto';
 export * from './pagination.dto';
 
 // City DTOs
@@ -32,3 +35,4 @@ export * from './query/base-query.dto';
 export * from './payment/confirm-payment-intent.dto';
 export * from './payment/create-refund.dto';
 export * from './payment/query-ledger-entries.dto';
+export * from './payment/payment-messages.dto';
