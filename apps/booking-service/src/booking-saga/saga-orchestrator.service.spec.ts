@@ -102,9 +102,16 @@ describe('BookingSagaOrchestrator compensation', () => {
     const published = () => outboxService.storeEvent.mock.calls.map((call) => call[2]);
 
     it('marks seats reserved only after flight confirms, with an idempotent reservation id', async () => {
-      flightClient.send.mockReturnValue(of({ reserved: true }));
+      flightClient.send.mockReturnValue(of({ reserved: true, unitPrice: 150.25, totalPrice: 300.5 }));
 
       await service.executeBookingSaga(request as never);
+
+      // flight's fare is the booking price
+      expect(manager.update).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        expect.objectContaining({ totalCost: 300.5 }),
+      );
 
       expect(flightClient.send).toHaveBeenCalledWith(
         MessagePatterns.FLIGHT_RESERVE_SEATS,

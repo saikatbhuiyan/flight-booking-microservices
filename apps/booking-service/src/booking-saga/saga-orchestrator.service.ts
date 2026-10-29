@@ -253,10 +253,11 @@ export class BookingSagaOrchestrator {
         seatCount: dto.seats || (dto.seatNumbers ? dto.seatNumbers.length : 1),
       };
 
+      let fare: { totalPrice?: number };
       try {
-        await firstValueFrom(
+        fare = await firstValueFrom(
           this.flightClient
-            .send(MessagePatterns.FLIGHT_RESERVE_SEATS, reservation)
+            .send<{ totalPrice?: number }>(MessagePatterns.FLIGHT_RESERVE_SEATS, reservation)
             .pipe(timeout(FLIGHT_RESERVATION_TIMEOUT_MS)),
         );
       } catch (error) {
@@ -275,7 +276,15 @@ export class BookingSagaOrchestrator {
         sagaState.status = SagaStatus.FLIGHT_RESERVED;
         await manager.save(SagaState, sagaState);
 
-        await manager.update(Booking, { bookingReference: sagaState.bookingId }, { status: BookingStatus.PENDING });
+        // flight-service's fare is authoritative; clients never send a price.
+        await manager.update(
+          Booking,
+          { bookingReference: sagaState.bookingId },
+          {
+            status: BookingStatus.PENDING,
+            ...(typeof fare?.totalPrice === 'number' && { totalCost: fare.totalPrice }),
+          },
+        );
       });
 
       this.logger.log('Step 3 completed: Flight seats reserved');

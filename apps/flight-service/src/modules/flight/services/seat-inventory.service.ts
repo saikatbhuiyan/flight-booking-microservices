@@ -16,11 +16,27 @@ export interface SeatCommand {
   seatCount: number;
 }
 
-type FlightSeatField =
-  | 'economySeatsAvailable'
-  | 'businessSeatsAvailable'
-  | 'firstClassSeatsAvailable'
-  | 'premiumEconomySeatsAvailable';
+export interface SeatReservation {
+  /** Fare per seat for the class (decimal currency units). */
+  unitPrice: number;
+  totalPrice: number;
+}
+
+interface SeatClassFields {
+  seats:
+    | 'economySeatsAvailable'
+    | 'businessSeatsAvailable'
+    | 'firstClassSeatsAvailable'
+    | 'premiumEconomySeatsAvailable';
+  price: 'economyPrice' | 'businessPrice' | 'firstClassPrice' | 'premiumEconomyPrice';
+}
+
+const SEAT_CLASSES: Record<string, SeatClassFields> = {
+  ECONOMY: { seats: 'economySeatsAvailable', price: 'economyPrice' },
+  BUSINESS: { seats: 'businessSeatsAvailable', price: 'businessPrice' },
+  FIRST_CLASS: { seats: 'firstClassSeatsAvailable', price: 'firstClassPrice' },
+  PREMIUM_ECONOMY: { seats: 'premiumEconomySeatsAvailable', price: 'premiumEconomyPrice' },
+};
 
 /**
  * Seat inventory changes for bookings, shared by the RPC reservation and the seat event consumers.
@@ -35,20 +51,26 @@ export class SeatInventoryService {
 
   constructor(private readonly dataSource: DataSource) {}
 
-  /** Reserves seats, or throws SeatReservationRejectedError. A retry with the same eventId gets the same answer. */
-  async reserve(cmd: SeatCommand): Promise<void> {
-    const rejection = await this.dataSource.transaction(async (manager) => {
+  /**
+   * Reserves seats and returns the fare, or throws SeatReservationRejectedError. A retry with the same eventId gets
+   * the same answer without taking seats again (the fare is re-read for it).
+   */
+  async reserve(cmd: SeatCommand): Promise<SeatReservation> {
+    const outcome = await this.dataSource.transaction(async (manager): Promise<SeatReservation | string> => {
       const previous = await manager.findOne(ProcessedEvent, { where: { eventId: cmd.eventId } });
-      if (previous) {
-        return previous.eventType === (EventPatterns.FLIGHT_RESERVE_SEATS as string)
-          ? null
-          : `Reservation ${cmd.eventId} was already rejected`;
-      }
-
       const flight = await manager.findOne(Flight, {
         where: { id: cmd.flightId },
         lock: { mode: 'pessimistic_write' },
       });
+      const fields = SEAT_CLASSES[cmd.seatClass];
+
+      if (previous) {
+        const wasReserved = previous.eventType === (EventPatterns.FLIGHT_RESERVE_SEATS as string);
+        return wasReserved && flight && fields
+          ? this.fare(flight, fields, cmd.seatCount)
+          : `Reservation ${cmd.eventId} was already rejected`;
+      }
+
       if (!flight) {
         return `Flight ${cmd.flightId} not found`;
       }
@@ -58,40 +80,41 @@ export class SeatInventoryService {
         return `Booking ${cmd.bookingId} was already released`;
       }
 
-      const seatField = this.getSeatField(cmd.seatClass);
-      if (!seatField) {
+      if (!fields) {
         return `Unknown seat class ${cmd.seatClass}`;
       }
 
-      if (flight[seatField] < cmd.seatCount) {
-        return `Not enough seats. Requested: ${cmd.seatCount}, Available: ${flight[seatField]}`;
+      if (flight[fields.seats] < cmd.seatCount) {
+        return `Not enough seats. Requested: ${cmd.seatCount}, Available: ${flight[fields.seats]}`;
       }
 
-      await manager.decrement(Flight, { id: cmd.flightId }, seatField, cmd.seatCount);
+      await manager.decrement(Flight, { id: cmd.flightId }, fields.seats, cmd.seatCount);
       await manager.save(ProcessedEvent, {
         eventId: cmd.eventId,
         eventType: EventPatterns.FLIGHT_RESERVE_SEATS,
         aggregateId: cmd.bookingId,
       });
       this.logger.log(`Reserved ${cmd.seatCount} ${cmd.seatClass} seats for booking ${cmd.bookingId}`);
-      return null;
+      return this.fare(flight, fields, cmd.seatCount);
     });
 
-    if (rejection) {
-      // Recorded so a retry gets the same answer (no-op if this was already a recorded rejection).
-      await this.dataSource
-        .createQueryBuilder()
-        .insert()
-        .into(ProcessedEvent)
-        .values({
-          eventId: cmd.eventId,
-          eventType: EventPatterns.FLIGHT_SEATS_RESERVATION_FAILED,
-          aggregateId: cmd.bookingId,
-        })
-        .orIgnore()
-        .execute();
-      throw new SeatReservationRejectedError(rejection);
+    if (typeof outcome !== 'string') {
+      return outcome;
     }
+
+    // Recorded so a retry gets the same answer (no-op if this was already a recorded rejection).
+    await this.dataSource
+      .createQueryBuilder()
+      .insert()
+      .into(ProcessedEvent)
+      .values({
+        eventId: cmd.eventId,
+        eventType: EventPatterns.FLIGHT_SEATS_RESERVATION_FAILED,
+        aggregateId: cmd.bookingId,
+      })
+      .orIgnore()
+      .execute();
+    throw new SeatReservationRejectedError(outcome);
   }
 
   /** Gives back seats only if this booking reserved them, at most once. Idempotent per eventId. */
@@ -105,10 +128,10 @@ export class SeatInventoryService {
 
       const reserved = await this.hasProcessed(manager, cmd.bookingId, EventPatterns.FLIGHT_RESERVE_SEATS);
       const alreadyReleased = await this.hasProcessed(manager, cmd.bookingId, EventPatterns.FLIGHT_RELEASE_SEATS);
-      const seatField = this.getSeatField(cmd.seatClass);
+      const fields = SEAT_CLASSES[cmd.seatClass];
 
-      if (reserved && !alreadyReleased && seatField) {
-        await manager.increment(Flight, { id: cmd.flightId }, seatField, cmd.seatCount);
+      if (reserved && !alreadyReleased && fields) {
+        await manager.increment(Flight, { id: cmd.flightId }, fields.seats, cmd.seatCount);
         this.logger.log(`Released ${cmd.seatCount} ${cmd.seatClass} seats for booking ${cmd.bookingId}`);
       } else {
         this.logger.warn(
@@ -129,13 +152,9 @@ export class SeatInventoryService {
     return (await manager.count(ProcessedEvent, { where: { aggregateId: bookingId, eventType } })) > 0;
   }
 
-  private getSeatField(seatClass: string): FlightSeatField | undefined {
-    const mapping: Record<string, FlightSeatField> = {
-      ECONOMY: 'economySeatsAvailable',
-      BUSINESS: 'businessSeatsAvailable',
-      FIRST_CLASS: 'firstClassSeatsAvailable',
-      PREMIUM_ECONOMY: 'premiumEconomySeatsAvailable',
-    };
-    return mapping[seatClass];
+  /** Decimal columns come back from pg as strings; the total is computed in cents to avoid float drift. */
+  private fare(flight: Flight, fields: SeatClassFields, seatCount: number): SeatReservation {
+    const unitCents = Math.round(Number(flight[fields.price]) * 100);
+    return { unitPrice: unitCents / 100, totalPrice: (unitCents * seatCount) / 100 };
   }
 }
