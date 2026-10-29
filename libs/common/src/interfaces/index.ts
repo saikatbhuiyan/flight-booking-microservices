@@ -125,6 +125,7 @@ export enum MessagePatterns {
   FLIGHT_SEARCH = 'flight.search.v2',
   FLIGHT_UPDATE = 'flight.update',
   FLIGHT_DELETE = 'flight.delete',
+  FLIGHT_RESERVE_SEATS = 'flight.reserveSeats',
 
   // City patterns
   CITY_CREATE = 'city.create',

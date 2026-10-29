@@ -1,12 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, EntityManager } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { trace, context as otelContext, SpanStatusCode } from '@opentelemetry/api';
 import { ProcessedEvent } from '../../entities/processed-events.entity';
-import { Flight } from '../../entities/flight.entity';
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
 import { EventPatterns } from '@app/common';
 import { SubscribeSeatEvent } from '../../config/rabbitmq.config';
+import { SeatInventoryService, SeatReservationRejectedError } from './services/seat-inventory.service';
 
 type FlightSeatEvent = {
   flightId: number;
@@ -19,33 +19,20 @@ type FlightSeatEvent = {
   };
 };
 
-/** A reservation the flight cannot satisfy. Reported to the saga instead of being dead-lettered. */
-class SeatReservationRejectedError extends Error {}
-
-/** Recorded instead of a reservation when the booking's release was processed first (events arrived out of order). */
-const RESERVE_SKIPPED_AFTER_RELEASE = `${EventPatterns.FLIGHT_RESERVE_SEATS}:skipped-after-release`;
-
-type FlightSeatField =
-  | 'economySeatsAvailable'
-  | 'businessSeatsAvailable'
-  | 'firstClassSeatsAvailable'
-  | 'premiumEconomySeatsAvailable';
-
 @Injectable()
 export class FlightEventHandler {
   private readonly logger = new Logger(FlightEventHandler.name);
   private readonly tracer = trace.getTracer('flight-service');
 
   constructor(
-    @InjectRepository(Flight)
-    private readonly flightRepository: Repository<Flight>,
-
     @InjectRepository(ProcessedEvent)
     private readonly processedEventRepository: Repository<ProcessedEvent>,
 
     private readonly dataSource: DataSource,
 
     private readonly amqpConnection: AmqpConnection,
+
+    private readonly seatInventory: SeatInventoryService,
   ) {}
 
   @SubscribeSeatEvent('reserve')
@@ -63,72 +50,18 @@ export class FlightEventHandler {
     });
 
     try {
-      const alreadyProcessed = await this.processedEventRepository.findOne({
-        where: { eventId },
-      });
-
-      if (alreadyProcessed) {
-        this.logger.log(`Event ${eventId} already processed (idempotent)`);
-        span.setAttribute('idempotent', true);
-        span.end();
-        return;
-      }
-
-      await otelContext.with(trace.setSpan(otelContext.active(), span), async () => {
-        await this.dataSource.transaction(async (manager) => {
-          const flight = await manager.findOne(Flight, {
-            where: { id: msg.flightId },
-            lock: { mode: 'pessimistic_write' },
-          });
-
-          if (!flight) {
-            throw new SeatReservationRejectedError(`Flight ${msg.flightId} not found`);
-          }
-
-          // The flight row lock serializes this with handleReleaseSeats, so this check is race-free.
-          if (await this.hasProcessed(manager, msg.bookingId, EventPatterns.FLIGHT_RELEASE_SEATS)) {
-            await manager.save(ProcessedEvent, {
-              eventId,
-              eventType: RESERVE_SKIPPED_AFTER_RELEASE,
-              aggregateId: msg.bookingId,
-            });
-            this.logger.warn(`Booking ${msg.bookingId} was already released; not reserving seats`);
-            return;
-          }
-
-          const seatField = this.getSeatField(msg.seatClass);
-          if (!seatField) {
-            throw new SeatReservationRejectedError(`Unknown seat class ${msg.seatClass}`);
-          }
-
-          const currentAvailable = flight[seatField];
-
-          if (currentAvailable < msg.seatCount) {
-            throw new SeatReservationRejectedError(
-              `Not enough seats. Requested: ${msg.seatCount}, Available: ${currentAvailable}`,
-            );
-          }
-
-          await manager.decrement(Flight, { id: msg.flightId }, seatField, msg.seatCount);
-
-          await manager.save(ProcessedEvent, {
-            eventId,
-            eventType: EventPatterns.FLIGHT_RESERVE_SEATS,
-            aggregateId: msg.bookingId,
-          });
-
-          this.logger.log(`Reserved ${msg.seatCount} ${msg.seatClass} seats for booking ${msg.bookingId}`);
-        });
-      });
-
+      await otelContext.with(trace.setSpan(otelContext.active(), span), () =>
+        this.seatInventory.reserve({ ...msg, eventId }),
+      );
       span.setStatus({ code: SpanStatusCode.OK });
     } catch (error) {
       const errorMessage = this.getErrorMessage(error);
       this.logger.error(`Error reserving seats for event ${eventId}: ${errorMessage}`);
       span.setStatus({ code: SpanStatusCode.ERROR, message: errorMessage });
 
+      // Legacy event path: booking-service now reserves over RPC, but queued events still need an answer.
       if (error instanceof SeatReservationRejectedError) {
-        await this.rejectReservation(msg, eventId, errorMessage);
+        await this.publishRejection(msg, eventId, errorMessage);
         return;
       }
 
@@ -194,42 +127,7 @@ export class FlightEventHandler {
     });
 
     try {
-      const alreadyProcessed = await this.processedEventRepository.findOne({
-        where: { eventId },
-      });
-
-      if (alreadyProcessed) {
-        this.logger.log(`Event ${eventId} already processed (idempotent)`);
-        span.end();
-        return;
-      }
-
-      await this.dataSource.transaction(async (manager) => {
-        // Same lock as handleReserveSeats, so reserve/release for a booking are serialized.
-        await manager.findOne(Flight, { where: { id: msg.flightId }, lock: { mode: 'pessimistic_write' } });
-
-        // Only give back seats this booking actually took, and only once.
-        const reserved = await this.hasProcessed(manager, msg.bookingId, EventPatterns.FLIGHT_RESERVE_SEATS);
-        const alreadyReleased = await this.hasProcessed(manager, msg.bookingId, EventPatterns.FLIGHT_RELEASE_SEATS);
-        const seatField = this.getSeatField(msg.seatClass);
-
-        if (reserved && !alreadyReleased && seatField) {
-          await manager.increment(Flight, { id: msg.flightId }, seatField, msg.seatCount);
-          this.logger.log(`Released ${msg.seatCount} ${msg.seatClass} seats for booking ${msg.bookingId}`);
-        } else {
-          this.logger.warn(
-            `Nothing to release for booking ${msg.bookingId} (reserved=${reserved}, released=${alreadyReleased})`,
-          );
-        }
-
-        // Recorded even when nothing was released, so a late reservation for this booking is skipped.
-        await manager.save(ProcessedEvent, {
-          eventId,
-          eventType: EventPatterns.FLIGHT_RELEASE_SEATS,
-          aggregateId: msg.bookingId,
-        });
-      });
-
+      await this.seatInventory.release({ ...msg, eventId });
       span.setStatus({ code: SpanStatusCode.OK });
     } catch (error) {
       const errorMessage = this.getErrorMessage(error);
@@ -241,11 +139,8 @@ export class FlightEventHandler {
     }
   }
 
-  /**
-   * Tells the booking saga the reservation can never succeed, then marks the event processed. Publishing first means
-   * a crash in between causes a duplicate rejection, which booking's compensation absorbs idempotently.
-   */
-  private async rejectReservation(msg: FlightSeatEvent, eventId: string, reason: string): Promise<void> {
+  /** Tells the booking saga the reservation can never succeed (seat inventory has already recorded the rejection). */
+  private async publishRejection(msg: FlightSeatEvent, eventId: string, reason: string): Promise<void> {
     await this.amqpConnection.publish('flight.events', EventPatterns.FLIGHT_SEATS_RESERVATION_FAILED, {
       bookingId: msg.bookingId,
       flightId: msg.flightId,
@@ -254,26 +149,6 @@ export class FlightEventHandler {
       reason,
       _metadata: { eventId: `${eventId}:rejected` },
     });
-
-    await this.processedEventRepository.save({
-      eventId,
-      eventType: EventPatterns.FLIGHT_SEATS_RESERVATION_FAILED,
-      aggregateId: msg.bookingId,
-    });
-  }
-
-  private async hasProcessed(manager: EntityManager, bookingId: string, eventType: string): Promise<boolean> {
-    return (await manager.count(ProcessedEvent, { where: { aggregateId: bookingId, eventType } })) > 0;
-  }
-
-  private getSeatField(seatClass: string): FlightSeatField | undefined {
-    const mapping: Record<string, FlightSeatField> = {
-      ECONOMY: 'economySeatsAvailable',
-      BUSINESS: 'businessSeatsAvailable',
-      FIRST_CLASS: 'firstClassSeatsAvailable',
-      PREMIUM_ECONOMY: 'premiumEconomySeatsAvailable',
-    };
-    return mapping[seatClass];
   }
 
   private getErrorMessage(error: unknown): string {

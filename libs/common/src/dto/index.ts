@@ -3,6 +3,7 @@ export * from './auth/sign-in.dto';
 export * from './auth/sign-out.dto';
 export * from './auth/refresh-token.dto';
 export * from './flight/flight.dto';
+export * from './flight/reserve-flight-seats.dto';
 export * from './booking/create-booking.dto';
 export * from './pagination.dto';
 
