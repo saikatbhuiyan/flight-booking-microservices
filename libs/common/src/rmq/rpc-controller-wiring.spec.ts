@@ -28,4 +28,15 @@ describe('RPC controller wiring', () => {
       expect(missing).toEqual([]);
     },
   );
+
+  // Inline object types, intersections, unions and `any` have no runtime class, so RpcValidationPipe skips them.
+  it('every @Payload() is typed with a DTO class', () => {
+    const untyped = findControllers(join(REPO_ROOT, 'apps')).flatMap((file) =>
+      (readFileSync(file, 'utf8').match(/@Payload\(\)\s*[\w{}\s,]*:\s*(\{|any\b|\w+\s*[&|])/g) ?? []).map(
+        (match) => `${relative(REPO_ROOT, file)}: ${match}`,
+      ),
+    );
+
+    expect(untyped).toEqual([]);
+  });
 });

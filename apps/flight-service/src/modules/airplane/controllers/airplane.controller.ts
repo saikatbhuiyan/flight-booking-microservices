@@ -7,7 +7,8 @@ import {
   CreateAirplaneDto,
   MessagePatterns as MP,
   QueryAirplaneDto,
-  UpdateAirplaneDto,
+  IdMessageDto,
+  UpdateAirplaneMessageDto,
 } from '@app/common';
 
 /**
@@ -30,17 +31,17 @@ export class AirplaneController {
   }
 
   @MessagePattern(MP.AIRPLANE_FIND_BY_ID)
-  handleFindOne(@Payload() data: { id: number }) {
+  handleFindOne(@Payload() data: IdMessageDto) {
     return this.airplaneService.findOne(data.id);
   }
 
   @MessagePattern(MP.AIRPLANE_UPDATE)
-  handleUpdate(@Payload() data: { id: number; updateAirplaneDto: UpdateAirplaneDto }) {
+  handleUpdate(@Payload() data: UpdateAirplaneMessageDto) {
     return this.airplaneService.update(data.id, data.updateAirplaneDto);
   }
 
   @MessagePattern(MP.AIRPLANE_DELETE)
-  handleDelete(@Payload() data: { id: number }) {
+  handleDelete(@Payload() data: IdMessageDto) {
     return this.airplaneService.remove(data.id);
   }
 }

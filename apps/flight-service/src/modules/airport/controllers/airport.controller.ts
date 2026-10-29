@@ -2,9 +2,15 @@ import { Controller, UseFilters, UsePipes } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { AirportService } from '../services/airport.service';
 import { CreateAirportDto } from '../dto/create-airport.dto';
-import { UpdateAirportDto } from '../dto/update-airport.dto';
 import { QueryAirportDto } from '../dto/query-airport.dto';
-import { CommonRpcExceptionFilter, RpcValidationPipe, MessagePatterns as MP } from '@app/common';
+import {
+  CommonRpcExceptionFilter,
+  RpcValidationPipe,
+  MessagePatterns as MP,
+  IdMessageDto,
+  UpdateAirportMessageDto,
+  AirportCodeMessageDto,
+} from '@app/common';
 
 /**
  * RabbitMQ handlers for Airport operations. Clients reach these through the API gateway only.
@@ -26,22 +32,22 @@ export class AirportController {
   }
 
   @MessagePattern(MP.AIRPORT_FIND_BY_ID)
-  async handleFindOne(@Payload() data: { id: number }) {
+  async handleFindOne(@Payload() data: IdMessageDto) {
     return this.airportService.findOne(data.id);
   }
 
   @MessagePattern(MP.AIRPORT_SEARCH)
-  async handleSearch(@Payload() data: { code: string }) {
+  async handleSearch(@Payload() data: AirportCodeMessageDto) {
     return this.airportService.findByCode(data.code);
   }
 
   @MessagePattern(MP.AIRPORT_UPDATE)
-  async handleUpdate(@Payload() data: { id: number; updateAirportDto: UpdateAirportDto }) {
+  async handleUpdate(@Payload() data: UpdateAirportMessageDto) {
     return this.airportService.update(data.id, data.updateAirportDto);
   }
 
   @MessagePattern(MP.AIRPORT_DELETE)
-  async handleDelete(@Payload() data: { id: number }) {
+  async handleDelete(@Payload() data: IdMessageDto) {
     return this.airportService.remove(data.id);
   }
 

@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class CreateBookingDto {
   @ApiProperty({ example: '1', description: 'ID of the flight' })
@@ -27,5 +27,7 @@ export class CreateBookingDto {
     description: 'Specific seat numbers',
   })
   @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
   seatNumbers?: string[];
 }

@@ -9,6 +9,7 @@ import {
   CommonRpcExceptionFilter,
   ReserveFlightSeatsDto,
   RpcValidationPipe,
+  IdMessageDto,
 } from '@app/common';
 
 /**
@@ -34,12 +35,12 @@ export class FlightController {
   }
 
   @MessagePattern(MP.FLIGHT_FIND_BY_ID)
-  handleFindOne(@Payload() data: { id: number }) {
+  handleFindOne(@Payload() data: IdMessageDto) {
     return this.flightService.findOne(data.id);
   }
 
   @MessagePattern(MP.FLIGHT_DELETE)
-  handleDelete(@Payload() data: { id: number }) {
+  handleDelete(@Payload() data: IdMessageDto) {
     return this.flightService.remove(data.id);
   }
 

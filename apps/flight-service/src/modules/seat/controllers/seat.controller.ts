@@ -7,6 +7,8 @@ import {
   CreateSeatDto,
   BulkCreateSeatsDto,
   MessagePatterns as MP,
+  IdMessageDto,
+  AirplaneSeatsMessageDto,
 } from '@app/common';
 
 /**
@@ -29,12 +31,12 @@ export class SeatController {
   }
 
   @MessagePattern(MP.AIRPLANE_GET_SEATS)
-  handleGetByAirplane(@Payload() data: { airplaneId: number }) {
+  handleGetByAirplane(@Payload() data: AirplaneSeatsMessageDto) {
     return this.seatService.findByAirplane(data.airplaneId);
   }
 
   @MessagePattern(MP.SEAT_DELETE)
-  handleDelete(@Payload() data: { id: number }) {
+  handleDelete(@Payload() data: IdMessageDto) {
     return this.seatService.remove(data.id);
   }
 }
