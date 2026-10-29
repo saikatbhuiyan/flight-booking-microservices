@@ -213,6 +213,14 @@ published. It is no longer declared; removing the declaration does not unbind it
 docker exec flight-booking-rabbitmq rabbitmqctl delete_queue booking-service.events
 ```
 
+booking-service now consumes `payment.completed` from `booking-service.payment-completed.v2` (with a dead-letter
+exchange). Once the new booking-service is running, delete the old queue. Anything left in it is a duplicate of
+what v2 received, and completion is idempotent:
+
+```bash
+docker exec flight-booking-rabbitmq rabbitmqctl delete_queue booking-service.payment-completed
+```
+
 ## Booking Flow Without Payment Service
 
 For local development, `booking-service` can finish the full booking flow without `payment-service`.

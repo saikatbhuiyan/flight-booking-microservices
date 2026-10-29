@@ -1,7 +1,6 @@
 import { ConflictException, Injectable, Logger } from '@nestjs/common';
-import { RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
-import { EventPatterns } from '@app/common';
 import { BookingService } from './booking.service';
+import { SubscribePaymentCompleted } from '../config/rabbitmq.config';
 
 type PaymentCompletedEvent = {
   paymentId: string;
@@ -23,11 +22,7 @@ export class BookingPaymentHandler {
 
   constructor(private readonly bookingService: BookingService) {}
 
-  @RabbitSubscribe({
-    exchange: 'payment.events',
-    routingKey: EventPatterns.PAYMENT_COMPLETED,
-    queue: 'booking-service.payment-completed',
-  })
+  @SubscribePaymentCompleted()
   async handlePaymentCompleted(msg: PaymentCompletedEvent): Promise<void> {
     const bookingReference = msg.bookingReference?.trim();
 
@@ -42,7 +37,7 @@ export class BookingPaymentHandler {
     try {
       await this.bookingService.completeBookingFromPaymentEvent(bookingReference, paymentTransactionId);
     } catch (error) {
-      // A business outcome, not a transient failure: rethrowing would requeue it forever (this queue uses REQUEUE).
+      // A business outcome, not a transient failure: ack it instead of dead-lettering.
       if (error instanceof ConflictException) {
         this.logger.error(
           `Payment ${msg.paymentId} captured for cancelled booking ${bookingReference}; refund required`,
