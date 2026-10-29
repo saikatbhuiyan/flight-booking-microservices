@@ -185,6 +185,18 @@ If you are evaluating the project, these are the fastest places to get signal:
 - The API gateway is the only public API. Backend services serve RabbitMQ handlers plus `/api/v1/health` over HTTP;
   their business endpoints are reachable only through the gateway, which applies JWT auth, roles, and rate limits.
 
+### Replaying dead-lettered events
+
+Event consumers NACK failures into dead-letter queues (`booking.dead-letter`, `notification-service.dead-letter`)
+instead of retrying forever. After fixing the cause, replay them to where they came from (consumers are idempotent):
+
+```bash
+npm run dlq:replay -- --queue booking.dead-letter                     # dry run: list what would be replayed
+npm run dlq:replay -- --queue booking.dead-letter --limit 20 --execute
+```
+
+Messages without an `x-death` origin (booking's outbox DLQ publishes) are listed as skipped and left in place.
+
 ### Admin users
 
 Roles are stored on `users.role` in `auth_db` (default `user`) and read on every gateway request, so a change takes
