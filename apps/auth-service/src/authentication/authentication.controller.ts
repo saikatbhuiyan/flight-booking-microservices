@@ -8,6 +8,7 @@ import {
   SignOutDto,
   SignUpDto,
   CommonRpcExceptionFilter,
+  IdMessageDto,
   ValidateTokenMessageDto,
   RpcValidationPipe,
 } from '@app/common';
@@ -49,5 +50,10 @@ export class AuthMessageController {
   @MessagePattern(MP.AUTH_VALIDATE)
   validateUser(@Payload() data: ValidateTokenMessageDto) {
     return this.authService.validateUser(data);
+  }
+
+  @MessagePattern(MP.USER_FIND_BY_ID)
+  getContact(@Payload() data: IdMessageDto) {
+    return this.authService.getContact(data.id);
   }
 }

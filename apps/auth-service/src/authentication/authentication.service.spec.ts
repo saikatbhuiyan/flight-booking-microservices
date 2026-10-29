@@ -3,7 +3,7 @@ jest.mock('uuid', () => ({
   v4: jest.fn(() => 'mock-uuid'),
 }));
 
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -382,6 +382,33 @@ describe('AuthenticationService', () => {
       usersRepository.findOne.mockResolvedValue(createUser({ isActive: false }));
 
       await expect(service.validateUser({ id: 42, email: 'jane@example.com' })).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe('getContact', () => {
+    it('returns contact details without credentials, honoring the email opt-out', async () => {
+      usersRepository.findOne.mockResolvedValue(
+        createUser({ notificationSettings: { emailEnabled: false } as never, password: 'hash', googleId: 'g' }),
+      );
+
+      await expect(service.getContact(42)).resolves.toEqual({
+        id: 42,
+        email: 'jane@example.com',
+        firstName: 'Jane',
+        emailEnabled: false,
+      });
+    });
+
+    it('defaults to email enabled when the user has no notification settings', async () => {
+      usersRepository.findOne.mockResolvedValue(createUser());
+
+      await expect(service.getContact(42)).resolves.toMatchObject({ emailEnabled: true });
+    });
+
+    it('throws NotFound for an unknown user', async () => {
+      usersRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.getContact(7)).rejects.toThrow(NotFoundException);
     });
   });
 });

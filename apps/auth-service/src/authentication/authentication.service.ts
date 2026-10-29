@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { HashingService } from '../hashing/hashing.service';
@@ -9,7 +9,7 @@ import { RefreshTokenIdsStorage } from './refresh-token-ids.storage';
 import { RefreshTokenBlacklist } from './refresh-token-black-list.storage';
 import { AuthAuditService } from './auth-audit.service';
 import { SignInDto, SignOutDto, RefreshTokenDto, SignUpDto } from '@app/common';
-import { Role, InvalidateRefreshTokenError } from '@app/common';
+import { Role, InvalidateRefreshTokenError, UserContact } from '@app/common';
 import { User } from '../entities/user.entity';
 import { JwtSignOptions, JwtVerifyOptions } from '@nestjs/jwt';
 
@@ -199,6 +199,21 @@ export class AuthenticationService {
       firstName: user.firstName,
       lastName: user.lastName,
       role: user.role,
+    };
+  }
+
+  /** Contact details for other services (notifications). Never exposes credentials. */
+  async getContact(id: number): Promise<UserContact> {
+    const user = await this.usersRepository.findOne({ where: { id }, relations: { notificationSettings: true } });
+    if (!user) {
+      throw new NotFoundException(`User ${id} not found`);
+    }
+
+    return {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      emailEnabled: user.notificationSettings?.emailEnabled ?? true,
     };
   }
 
