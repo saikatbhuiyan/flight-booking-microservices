@@ -1,11 +1,13 @@
-import { Controller, UseFilters, UsePipes } from '@nestjs/common';
+import { ConflictException, Controller, UseFilters, UsePipes } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { FlightService } from '../services/flight.service';
+import { SeatInventoryService, SeatReservationRejectedError } from '../services/seat-inventory.service';
 import {
   MessagePatterns as MP,
   SharedCreateFlightDto,
   SharedSearchFlightDto,
   CommonRpcExceptionFilter,
+  ReserveFlightSeatsDto,
   RpcValidationPipe,
 } from '@app/common';
 
@@ -16,7 +18,10 @@ import {
 @UseFilters(CommonRpcExceptionFilter)
 @UsePipes(RpcValidationPipe)
 export class FlightController {
-  constructor(private readonly flightService: FlightService) {}
+  constructor(
+    private readonly flightService: FlightService,
+    private readonly seatInventory: SeatInventoryService,
+  ) {}
 
   @MessagePattern(MP.FLIGHT_CREATE)
   handleCreate(@Payload() createDto: SharedCreateFlightDto) {
@@ -36,5 +41,19 @@ export class FlightController {
   @MessagePattern(MP.FLIGHT_DELETE)
   handleDelete(@Payload() data: { id: number }) {
     return this.flightService.remove(data.id);
+  }
+
+  /** Synchronous seat reservation for the booking saga. A rejection is a 409 the saga turns into a cancellation. */
+  @MessagePattern(MP.FLIGHT_RESERVE_SEATS)
+  async handleReserveSeats(@Payload() cmd: ReserveFlightSeatsDto) {
+    try {
+      await this.seatInventory.reserve({ ...cmd, eventId: cmd.reservationId });
+      return { reserved: true };
+    } catch (error) {
+      if (error instanceof SeatReservationRejectedError) {
+        throw new ConflictException(error.message);
+      }
+      throw error;
+    }
   }
 }
