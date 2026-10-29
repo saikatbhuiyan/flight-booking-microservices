@@ -63,6 +63,12 @@ export const rabbitmqConfig: RabbitMQConfig = {
       type: 'topic',
       options: { durable: true },
     },
+    {
+      // Events flight-service publishes back to the booking saga.
+      name: 'flight.events',
+      type: 'topic',
+      options: { durable: true },
+    },
   ],
   channels: {
     'channel-1': {
