@@ -1,15 +1,20 @@
 jest.mock('uuid', () => ({ v4: jest.fn(() => 'mock-uuid') }));
 
-import { ConflictException } from '@nestjs/common';
-import { EventPatterns } from '@app/common';
+import { ConflictException, ServiceUnavailableException } from '@nestjs/common';
+import { of, throwError } from 'rxjs';
+import { EventPatterns, MessagePatterns } from '@app/common';
 import { SagaStatus } from '../entities/saga-state.entity';
 import { BookingSagaOrchestrator } from './saga-orchestrator.service';
 
 describe('BookingSagaOrchestrator compensation', () => {
-  const manager = { save: jest.fn(), update: jest.fn() };
+  const manager = { save: jest.fn(), update: jest.fn(), create: jest.fn((_entity: unknown, data: unknown) => data) };
   const outboxService = { storeEvent: jest.fn() };
-  const seatLockService = { releaseSeats: jest.fn() };
-  const sagaStateRepository = { findOne: jest.fn() };
+  const seatLockService = {
+    releaseSeats: jest.fn(),
+    lockSeats: jest.fn().mockResolvedValue({ success: true, lockKey: 'lock-1', failedSeats: [] }),
+  };
+  const sagaStateRepository = { findOne: jest.fn(), save: jest.fn((saga: unknown) => Promise.resolve(saga)) };
+  const flightClient = { send: jest.fn() };
   const bookingRepository = { findOne: jest.fn() };
   const dataSource = { transaction: jest.fn((cb: (m: typeof manager) => Promise<void>) => cb(manager)) };
 
@@ -19,6 +24,7 @@ describe('BookingSagaOrchestrator compensation', () => {
     seatLockService as never,
     outboxService as never,
     dataSource as never,
+    flightClient as never,
   );
 
   beforeEach(() => jest.clearAllMocks());
@@ -89,5 +95,45 @@ describe('BookingSagaOrchestrator compensation', () => {
     dataSource.transaction.mockRejectedValueOnce(new Error('db down'));
 
     await expect(service.cancelBooking('BKG-1', 'User requested cancellation')).rejects.toThrow('db down');
+  });
+
+  describe('step 3: synchronous seat reservation', () => {
+    const request = { flightId: 7, seats: 2, seatClass: 'ECONOMY', seatNumbers: ['1A', '1B'], userId: 42 };
+    const published = () => outboxService.storeEvent.mock.calls.map((call) => call[2]);
+
+    it('marks seats reserved only after flight confirms, with an idempotent reservation id', async () => {
+      flightClient.send.mockReturnValue(of({ reserved: true }));
+
+      await service.executeBookingSaga(request as never);
+
+      expect(flightClient.send).toHaveBeenCalledWith(
+        MessagePatterns.FLIGHT_RESERVE_SEATS,
+        expect.objectContaining({ reservationId: expect.stringMatching(/:reserve-seats$/), flightId: 7, seatCount: 2 }),
+      );
+      expect(manager.save).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ status: SagaStatus.FLIGHT_RESERVED }),
+      );
+      expect(published()).toEqual([EventPatterns.BOOKING_CREATED]);
+    });
+
+    it('cancels without releasing seats and returns 409 when flight rejects', async () => {
+      flightClient.send.mockReturnValue(throwError(() => ({ status: 409, message: 'Not enough seats' })));
+
+      await expect(service.executeBookingSaga(request as never)).rejects.toThrow(ConflictException);
+      expect(published()).toEqual([EventPatterns.BOOKING_CREATED, EventPatterns.BOOKING_CANCELLED]);
+      expect(seatLockService.releaseSeats).toHaveBeenCalled();
+    });
+
+    it('cancels and sends a guarded release, returning 503, when flight does not answer', async () => {
+      flightClient.send.mockReturnValue(throwError(() => new Error('Timeout has occurred')));
+
+      await expect(service.executeBookingSaga(request as never)).rejects.toThrow(ServiceUnavailableException);
+      expect(published()).toEqual([
+        EventPatterns.BOOKING_CREATED,
+        EventPatterns.FLIGHT_RELEASE_SEATS,
+        EventPatterns.BOOKING_CANCELLED,
+      ]);
+    });
   });
 });
