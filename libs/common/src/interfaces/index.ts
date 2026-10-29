@@ -202,6 +202,7 @@ export enum EventPatterns {
   FLIGHT_RESERVE_SEATS = 'flight.reserve-seats',
   FLIGHT_CONFIRM_SEATS = 'flight.confirm-seats',
   FLIGHT_RELEASE_SEATS = 'flight.release-seats',
+  FLIGHT_SEATS_RESERVATION_FAILED = 'flight.seats-reservation-failed',
 }
 
 export interface ActiveUserData {
