@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException, Inject, Logger } from '@nestjs/common';
+import { Injectable, BadRequestException, HttpException, NotFoundException, Inject, Logger } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { SeatLockService } from '@app/seat-lock';
 import { BookingSagaOrchestrator, CreateBookingDto } from '../booking-saga/saga-orchestrator.service';
@@ -44,6 +44,10 @@ export class BookingService {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.warn(`createBooking failed: ${message}`);
+      // Keep meaningful statuses (409 seats unavailable, 503 flight unreachable) instead of flattening to 400.
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new BadRequestException(message);
     }
   }
