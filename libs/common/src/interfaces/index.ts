@@ -93,6 +93,15 @@ export interface IUser {
   isActive: boolean;
 }
 
+/** user.findById reply: what other services may know about a user to contact them (no credentials). */
+export interface UserContact {
+  id: number;
+  email: string;
+  firstName: string;
+  /** From the user's notification settings; true when they have none. */
+  emailEnabled: boolean;
+}
+
 // JWT Payload
 export interface IJwtPayload {
   sub: string;
