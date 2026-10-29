@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { ConflictException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { Booking, BookingStatus, PaymentStatus } from '../entities/booking.entity';
@@ -21,6 +21,8 @@ export interface CreateBookingDto {
   passengerPhone?: string;
   seatPreference?: string;
 }
+
+const CANCELLED_SAGA_STATUSES = [SagaStatus.COMPENSATING, SagaStatus.COMPENSATED, SagaStatus.FAILED];
 
 @Injectable()
 export class BookingSagaOrchestrator {
@@ -282,6 +284,10 @@ export class BookingSagaOrchestrator {
         throw new Error('Saga state not found');
       }
 
+      if (CANCELLED_SAGA_STATUSES.includes(sagaState.status)) {
+        throw new ConflictException(`Booking ${bookingId} is cancelled and cannot be completed`);
+      }
+
       // Idempotency check
       if (sagaState.status === SagaStatus.BOOKING_CONFIRMED) {
         this.logger.log(`Booking ${bookingId} already confirmed (idempotent)`);
@@ -371,9 +377,34 @@ export class BookingSagaOrchestrator {
   }
 
   /**
-   * Compensation (Idempotent)
+   * flight-service could not reserve the seats (unknown flight, not enough seats). Cancel the booking without asking
+   * flight to release seats it never took. Idempotent: a duplicate rejection finds the saga already COMPENSATED.
    */
-  private async compensate(sagaState: SagaState, error: Error): Promise<void> {
+  async handleSeatReservationRejected(bookingId: string, reason: string): Promise<void> {
+    const sagaState = await this.sagaStateRepository.findOne({ where: { bookingId } });
+
+    if (!sagaState) {
+      this.logger.warn(`Seat reservation rejected for unknown booking ${bookingId}: ${reason}`);
+      return;
+    }
+
+    if (sagaState.status === SagaStatus.BOOKING_CONFIRMED) {
+      // Optimistic reservation: the booking was paid and confirmed before flight answered. It is cancelled below,
+      // but the captured payment is not refunded automatically.
+      this.logger.error(`Booking ${bookingId} was confirmed but flight rejected its seats; refund required: ${reason}`);
+    }
+
+    await this.compensate(sagaState, new Error(`Seat reservation rejected: ${reason}`), { flightSeatsReserved: false });
+  }
+
+  /**
+   * Compensation (Idempotent). Throws if it fails, so callers do not report a cancellation that did not happen.
+   */
+  private async compensate(
+    sagaState: SagaState,
+    error: Error,
+    options: { flightSeatsReserved?: boolean } = {},
+  ): Promise<void> {
     const span = this.tracer.startSpan('saga.compensate');
 
     try {
@@ -390,7 +421,7 @@ export class BookingSagaOrchestrator {
         await manager.save(SagaState, sagaState);
 
         // Compensate based on current step
-        if (sagaState.currentStep >= 3) {
+        if (options.flightSeatsReserved ?? sagaState.currentStep >= 3) {
           const dto = sagaState.payload as CreateBookingDto;
 
           const payload = {
@@ -450,6 +481,7 @@ export class BookingSagaOrchestrator {
     } catch (compensationError) {
       this.logger.error('Compensation failed:', compensationError);
       span.setStatus({ code: SpanStatusCode.ERROR, message: compensationError.message });
+      throw compensationError;
     } finally {
       span.end();
     }

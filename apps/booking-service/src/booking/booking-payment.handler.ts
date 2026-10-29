@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { ConflictException, Injectable, Logger } from '@nestjs/common';
 import { RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
 import { EventPatterns } from '@app/common';
 import { BookingService } from './booking.service';
@@ -39,6 +39,17 @@ export class BookingPaymentHandler {
     const paymentTransactionId = msg.gatewayTransactionId || msg.gatewayPaymentId || msg.paymentId;
 
     this.logger.log(`Completing booking ${bookingReference} from payment ${msg.paymentId}`);
-    await this.bookingService.completeBookingFromPaymentEvent(bookingReference, paymentTransactionId);
+    try {
+      await this.bookingService.completeBookingFromPaymentEvent(bookingReference, paymentTransactionId);
+    } catch (error) {
+      // A business outcome, not a transient failure: rethrowing would requeue it forever (this queue uses REQUEUE).
+      if (error instanceof ConflictException) {
+        this.logger.error(
+          `Payment ${msg.paymentId} captured for cancelled booking ${bookingReference}; refund required`,
+        );
+        return;
+      }
+      throw error;
+    }
   }
 }

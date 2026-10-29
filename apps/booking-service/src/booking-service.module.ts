@@ -14,6 +14,7 @@ import { OutboxEvent } from './entities/outbox-event.entity';
 import { LoggingInterceptor } from '@app/common';
 import { BookingController } from './booking/booking.controller';
 import { BookingPaymentHandler } from './booking/booking-payment.handler';
+import { BookingFlightHandler } from './booking/booking-flight.handler';
 import { BookingCleanupService } from './booking/booking-cleanup.service';
 import { BookingService } from './booking/booking.service';
 import { BookingSagaOrchestrator } from './booking-saga/saga-orchestrator.service';
@@ -49,6 +50,7 @@ import { paymentProviders } from './payment/payment.providers';
       useClass: GlobalExceptionFilter,
     },
     BookingPaymentHandler,
+    BookingFlightHandler,
     BookingCleanupService,
     BookingService,
     BookingSagaOrchestrator,
