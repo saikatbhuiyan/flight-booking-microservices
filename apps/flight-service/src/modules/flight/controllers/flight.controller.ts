@@ -43,12 +43,15 @@ export class FlightController {
     return this.flightService.remove(data.id);
   }
 
-  /** Synchronous seat reservation for the booking saga. A rejection is a 409 the saga turns into a cancellation. */
+  /**
+   * Synchronous seat reservation for the booking saga. Replies with the fare so booking charges flight's price;
+   * a rejection is a 409 the saga turns into a cancellation.
+   */
   @MessagePattern(MP.FLIGHT_RESERVE_SEATS)
   async handleReserveSeats(@Payload() cmd: ReserveFlightSeatsDto) {
     try {
-      await this.seatInventory.reserve({ ...cmd, eventId: cmd.reservationId });
-      return { reserved: true };
+      const fare = await this.seatInventory.reserve({ ...cmd, eventId: cmd.reservationId });
+      return { reserved: true, ...fare };
     } catch (error) {
       if (error instanceof SeatReservationRejectedError) {
         throw new ConflictException(error.message);
