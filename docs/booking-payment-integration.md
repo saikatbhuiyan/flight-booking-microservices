@@ -6,55 +6,65 @@
 
 For local development, payment can stay disabled so you can still complete the full booking flow end-to-end without starting `payment-service`.
 
-This document also captures the latest integration changes:
-
-- service-level `.env` files are loaded automatically from `apps/<service>/.env`
-- booking → payment RMQ calls now forward the idempotency key
-- payment-init failures now trigger booking compensation instead of leaving reserved seats behind
-- local mock payment mode returns explicit response metadata to the caller
+Seats are confirmed with flight-service (synchronous RPC) before any payment is requested, and the booking price
+comes from the flight's fare. See [guides/api-migration.md](../guides/api-migration.md) for client-facing changes and
+[guides/operations.md](../guides/operations.md) for rollout and dead-letter handling.
 
 ## How it works
 
 ### Booking creation
 
-When you call `POST /bookings`:
+When you call `POST /bookings`, `booking-service` runs the booking saga:
 
-- `booking-service` executes the booking saga steps (create booking, lock seats, reserve seats).
-- It then requests a payment intent from `payment-service` using RMQ pattern `payment.create_intent`.
-- The RMQ payload includes the same idempotency key generated from the booking reference.
-- The API response includes:
-  - `paymentRequired`
-  - `autoCompleted`
-  - `payment.paymentId`
-  - `payment.clientSecret` (when the gateway returns one)
-  - `payment.provider`
+1. **Create the booking** (`INITIATED`) and store `booking.created` in the outbox.
+2. **Lock the seats in Redis** for the booking window.
+3. **Reserve the seats with flight-service** over RMQ RPC (`flight.reserveSeats`, 5s timeout). Flight's reply
+   carries the fare for the seat class, which becomes the booking's `totalCost`. Payment is only requested for
+   seats that flight has actually reserved.
+   - **409 from flight-service** (unknown flight or seat class, not enough seats): the booking is cancelled,
+     `booking.cancelled` is published, and `POST /bookings` returns **409**. Nothing is released, because flight took
+     nothing.
+   - **No answer** (timeout or transport error): the booking is cancelled, a `flight.release-seats` event is queued,
+     and `POST /bookings` returns **503**. flight-service only gives back seats this booking actually reserved, so the
+     release is safe whether or not the reservation happened.
+   - **Retries:** the reservation id is `<sagaId>:reserve-seats`, so a retried call gets the same answer without
+     taking seats twice.
+4. **Request a payment intent** from `payment-service` over `payment.create_intent`. The payload is always the
+   envelope `{ dto, idempotencyKey }`; `dto.amount` is `totalCost` in cents, and `dto.metadata.bookingReference`
+   identifies the booking.
+
+The API response includes `paymentRequired`, `autoCompleted`, `totalCost`, `payment.paymentId`,
+`payment.clientSecret` (when the gateway returns one) and `payment.provider`.
 
 ### Local payment disabled
 
 If `booking-service` resolves to local mock mode:
 
-- `booking-service` uses a local mock payment client.
-- It immediately completes the booking saga using a generated mock transaction id.
-- The create-booking response returns `paymentRequired=false`, `autoCompleted=true`, and the booking is already `BOOKED`.
-- The `payment.provider` field is `local-mock`.
+- It completes the booking straight away with a generated mock transaction id. The response has
+  `paymentRequired=false`, `autoCompleted=true`, and the booking is already `BOOKED`.
+- `payment.provider` is `local-mock`.
 
 ### Payment-service enabled
 
 If `booking-service` resolves to the RMQ payment path:
 
-- it calls `payment-service` over `payment.create_intent`
-- the booking stays `PENDING`
-- the response returns `paymentRequired=true`
-- the `payment.provider` field is `payment-service`
+- The booking stays `PENDING` and the response has `paymentRequired=true` with provider `payment-service`.
+- The client reads and confirms the payment through the gateway: `GET /payments/:id` and
+  `POST /payments/:id/confirm`. Only the booking owner or an admin can do this.
+- When the payment succeeds, payment-service publishes `payment.completed` on `payment.events`. booking-service
+  consumes it from `booking-service.payment-completed.v2` and confirms the booking, which publishes
+  `booking.confirmed`.
+- A failed payment publishes `payment.failed`, which notification-service turns into a message to the user.
 
 ### Failure handling
 
-If booking saga creation succeeds but payment intent creation fails:
-
-- `booking-service` now compensates the booking saga
-- reserved flight seats are released
-- Redis seat locks are released
-- the booking is marked cancelled instead of being left in a pending half-created state
+- **Payment-intent creation fails** after the seats are reserved: booking compensates. It releases flight seats and
+  Redis locks and marks the booking cancelled.
+- **A payment arrives for a cancelled booking:** completion is refused with a conflict. The consumer logs
+  `refund required` and acknowledges the message; no refund is issued automatically.
+- **Any other error completing a booking from `payment.completed`:** the event is dead-lettered to
+  `booking.dead-letter` and can be replayed with `npm run dlq:replay`.
+- **Cancellation** (by the user or by compensation) publishes `booking.cancelled` exactly once.
 
 ## Configuration
 
@@ -83,6 +93,8 @@ If `PAYMENT_REQUIRED` is omitted entirely, `development` still defaults to local
 
 ## Notes / constraints
 
-- The integration currently creates a payment intent for `booking.id` (numeric) and includes `bookingReference` in metadata.
-- Amount is sent in **cents** (smallest currency unit) derived from `booking.totalCost`.
+- The payment intent is created for `booking.id` (numeric), with `bookingReference` in metadata; payment events use
+  the reference to find the booking.
+- Amount is sent in **cents** (smallest currency unit), derived from `booking.totalCost`, which is the flight fare
+  multiplied by the seat count.
 - Stripe is the supported real gateway path in this repo today. PayPal is registered but intentionally returns `NotImplemented`.
