@@ -174,6 +174,17 @@ If you are evaluating the project, these are the fastest places to get signal:
 4. Review `libs/seat-lock` for concurrency handling around seat reservation windows.
 5. Check `libs/telemetry` and `docker-compose.yml` for the observability setup.
 
+## Guides
+
+- [Developing services](guides/developing-services.md): tutorials for adding a gateway operation, consuming and
+  publishing events, and the messaging rules the tests enforce.
+- [API migration guide](guides/api-migration.md): what changed for API clients (gateway-only API, `/payments`,
+  logout, booking 409/503) plus a route and role reference.
+- [Operations runbook](guides/operations.md): rolling out this release, granting admins, enabling SES email,
+  replaying dead letters, and troubleshooting.
+- [Booking → payment integration](docs/booking-payment-integration.md): how the booking saga, seat reservation and
+  payments fit together.
+
 ## Notes for Developers
 
 - Top-level `npm run build` targets the default Nest project defined in `nest-cli.json`.
