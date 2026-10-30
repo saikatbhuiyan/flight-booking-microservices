@@ -59,7 +59,7 @@ services:
     image: localstack/localstack:latest
     container_name: flight-booking-localstack
     environment:
-      SERVICES: s3
+      SERVICES: s3,ses
       DEBUG: 1
       DOCKER_HOST: unix:///var/run/docker.sock
       AWS_ACCESS_KEY_ID: test
@@ -243,6 +243,8 @@ services:
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://tempo:4318/v1/traces
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy

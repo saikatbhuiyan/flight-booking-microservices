@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { CreateRefundDto } from '@app/common';
 import { DataSource, Repository } from 'typeorm';
 import { createHash, randomUUID } from 'crypto';
 import { Refund, RefundStatus } from '../entities/refund.entity';
@@ -9,7 +10,6 @@ import { IdempotencyKey, IdempotencyKeyStatus } from '../entities/idempotency-ke
 import { LedgerDirection, LedgerEntry, LedgerEntryType } from '../entities/ledger-entry.entity';
 import { PaymentAuditLog, AuditAction } from '../entities/payment-audit-log.entity';
 import { PaymentGatewayFactory } from '../gateways/gateway.factory';
-import { CreateRefundDto } from '../dto/create-refund.dto';
 
 @Injectable()
 export class RefundService {

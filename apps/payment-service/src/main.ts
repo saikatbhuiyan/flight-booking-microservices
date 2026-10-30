@@ -5,7 +5,7 @@ import { PaymentServiceModule } from './payment-service.module';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
-import { resolveRabbitMqUrl } from '@app/common';
+import { RPC_QUEUE_OPTIONS, RpcQueue, resolveRabbitMqUrl } from '@app/common';
 
 async function bootstrap() {
   const logger = new Logger('PaymentService');
@@ -47,10 +47,8 @@ async function bootstrap() {
     transport: Transport.RMQ,
     options: {
       urls: [resolveRabbitMqUrl(configService.get<string>('RABBITMQ_URL'))],
-      queue: 'payment_queue',
-      queueOptions: {
-        durable: true,
-      },
+      queue: RpcQueue.PAYMENT,
+      queueOptions: RPC_QUEUE_OPTIONS,
     },
   });
 

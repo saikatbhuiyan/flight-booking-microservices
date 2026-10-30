@@ -181,6 +181,57 @@ If you are evaluating the project, these are the fastest places to get signal:
 - Each service now loads its own `apps/<service>/.env` file even when started from the monorepo root.
 - Some lint warnings still exist in older parts of the codebase, but the repo now builds cleanly and the root scripts point at real apps.
 - Stripe is the production-ready payment path in this repo. PayPal is registered but intentionally returns `NotImplemented`.
+- RPC queue options live in `libs/common/src/rmq/rpc-queue.ts` and are shared by services and their clients.
+- The API gateway is the only public API. Backend services serve RabbitMQ handlers plus `/api/v1/health` over HTTP;
+  their business endpoints are reachable only through the gateway, which applies JWT auth, roles, and rate limits.
+
+### Replaying dead-lettered events
+
+Event consumers NACK failures into dead-letter queues (`booking.dead-letter`, `notification-service.dead-letter`)
+instead of retrying forever. After fixing the cause, replay them to where they came from (consumers are idempotent):
+
+```bash
+npm run dlq:replay -- --queue booking.dead-letter                     # dry run: list what would be replayed
+npm run dlq:replay -- --queue booking.dead-letter --limit 20 --execute
+```
+
+Messages without an `x-death` origin (booking's outbox DLQ publishes) are listed as skipped and left in place.
+
+### Admin users
+
+Roles are stored on `users.role` in `auth_db` (default `user`) and read on every gateway request, so a change takes
+effect immediately. There is no self-service promotion; promote an account directly:
+
+```bash
+docker exec flight-booking-postgres psql -U postgres -d auth_db -c "UPDATE users SET role = 'admin' WHERE email = 'you@example.com';"
+```
+
+### One-time migration: RPC queue arguments changed
+
+The RPC queues (`<service>_queue`) no longer carry dead-letter/retry arguments. A broker that still has the old
+queues rejects the new declaration with `PRECONDITION_FAILED - inequivalent arg 'x-dead-letter-exchange'` and the
+service fails to start. Delete the old queues once (RPC requests are transient, nothing durable is lost):
+
+```bash
+docker exec flight-booking-rabbitmq sh -c 'for s in auth flight booking notification payment; do
+  for q in ${s}_queue ${s}_queue_retry ${s}_queue_dead; do rabbitmqctl -q delete_queue "$q" || true; done
+done'
+```
+
+`booking-service.events` was bound to `booking.*` but never consumed, so it holds every booking event ever
+published. It is no longer declared; removing the declaration does not unbind it, so delete it once:
+
+```bash
+docker exec flight-booking-rabbitmq rabbitmqctl delete_queue booking-service.events
+```
+
+booking-service now consumes `payment.completed` from `booking-service.payment-completed.v2` (with a dead-letter
+exchange). Once the new booking-service is running, delete the old queue. Anything left in it is a duplicate of
+what v2 received, and completion is idempotent:
+
+```bash
+docker exec flight-booking-rabbitmq rabbitmqctl delete_queue booking-service.payment-completed
+```
 
 ## Booking Flow Without Payment Service
 
@@ -426,7 +477,10 @@ npm run migration:revert:booking
 | AWS_ACCESS_KEY_ID | AWS access key | test (LocalStack) |
 | AWS_SECRET_ACCESS_KEY | AWS secret key | test (LocalStack) |
 | AWS_S3_BUCKET | S3 bucket name | flight-booking-bucket |
-| AWS_ENDPOINT | S3 endpoint | http://localstack:4566 |
+| **Notifications** (notification-service) |
+| NOTIFICATION_PROVIDER | `log` (write notifications to the log) or `ses` (email via Amazon SES) | log |
+| NOTIFICATION_FROM_EMAIL | Verified SES sender; required when the provider is `ses` | — (use `no-reply@flight-booking.local` with LocalStack) |
+| AWS_ENDPOINT | S3/SES endpoint (LocalStack) | http://localstack:4566 |
 | **Observability** |
 | OTEL_EXPORTER_OTLP_ENDPOINT | OpenTelemetry endpoint | http://tempo:4318/v1/traces |
 | **Rate Limiting** |

@@ -1,4 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { ConflictException, HttpStatus, Inject, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
+import { ClientProxy } from '@nestjs/microservices';
+import { firstValueFrom, timeout } from 'rxjs';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { Booking, BookingStatus, PaymentStatus } from '../entities/booking.entity';
@@ -7,7 +9,7 @@ import { SeatLockService } from '@app/seat-lock';
 import { OutboxService } from '../outbox/outbox.service';
 import { v4 as uuidv4 } from 'uuid';
 import { trace, context as otelContext, SpanStatusCode } from '@opentelemetry/api';
-import { EventPatterns } from '@app/common';
+import { EventPatterns, MessagePatterns, ReserveFlightSeatsDto, createHttpExceptionFromRpcError } from '@app/common';
 
 export interface CreateBookingDto {
   userId: number;
@@ -22,6 +24,13 @@ export interface CreateBookingDto {
   seatPreference?: string;
 }
 
+export const FLIGHT_CLIENT = 'FLIGHT_SERVICE';
+
+/** How long the saga waits for flight-service to confirm seats before compensating. */
+const FLIGHT_RESERVATION_TIMEOUT_MS = 5000;
+
+const CANCELLED_SAGA_STATUSES = [SagaStatus.COMPENSATING, SagaStatus.COMPENSATED, SagaStatus.FAILED];
+
 @Injectable()
 export class BookingSagaOrchestrator {
   private readonly logger = new Logger(BookingSagaOrchestrator.name);
@@ -35,6 +44,7 @@ export class BookingSagaOrchestrator {
     private readonly seatLockService: SeatLockService,
     private readonly outboxService: OutboxService,
     private readonly dataSource: DataSource,
+    @Inject(FLIGHT_CLIENT) private readonly flightClient: ClientProxy,
   ) {}
 
   /**
@@ -218,7 +228,11 @@ export class BookingSagaOrchestrator {
   }
 
   /**
-   * Step 3: Reserve Flight Seats (Idempotent via Outbox)
+   * Step 3: Reserve Flight Seats (synchronous RPC, idempotent per saga)
+   *
+   * Waits for flight-service so payment is only taken for seats that exist. A rejection (409) cancels the booking
+   * without releasing anything; no answer (timeout/transport error) cancels it and sends a release, which flight
+   * applies only if the reservation actually happened.
    */
   private async executeStep3_ReserveFlightSeats(sagaState: SagaState): Promise<void> {
     const span = this.tracer.startSpan('saga.step3.reserveFlightSeats');
@@ -230,33 +244,50 @@ export class BookingSagaOrchestrator {
         return;
       }
 
-      await this.dataSource.transaction(async (manager) => {
-        const dto = sagaState.payload as CreateBookingDto;
+      const dto = sagaState.payload as CreateBookingDto;
+      const reservation: ReserveFlightSeatsDto = {
+        reservationId: `${sagaState.sagaId}:reserve-seats`,
+        bookingId: sagaState.bookingId,
+        flightId: Number(dto.flightId),
+        seatClass: dto.seatClass || 'ECONOMY',
+        seatCount: dto.seats || (dto.seatNumbers ? dto.seatNumbers.length : 1),
+      };
 
-        // Store event in outbox
-        await this.outboxService.storeEvent(
-          'BOOKING',
-          sagaState.bookingId,
-          EventPatterns.FLIGHT_RESERVE_SEATS,
-          {
-            flightId: Number(dto.flightId), // Coerce to number
-            bookingId: sagaState.bookingId,
-            seatClass: dto.seatClass || 'ECONOMY', // Provide default
-            seatCount: dto.seats || (dto.seatNumbers ? dto.seatNumbers.length : 1), // Provide default
-          },
-          manager,
+      let fare: { totalPrice?: number };
+      try {
+        fare = await firstValueFrom(
+          this.flightClient
+            .send<{ totalPrice?: number }>(MessagePatterns.FLIGHT_RESERVE_SEATS, reservation)
+            .pipe(timeout(FLIGHT_RESERVATION_TIMEOUT_MS)),
         );
+      } catch (error) {
+        const failure = createHttpExceptionFromRpcError(error);
+        const rejected = failure.getStatus() === (HttpStatus.CONFLICT as number);
+        const reason = rejected ? failure.message : `Seat reservation unconfirmed: ${failure.message}`;
 
-        // Update saga state
+        await this.compensate(sagaState, new Error(reason), { flightSeatsReserved: !rejected });
+        throw rejected
+          ? new ConflictException(failure.message)
+          : new ServiceUnavailableException('Could not confirm seat availability, please try again');
+      }
+
+      await this.dataSource.transaction(async (manager) => {
         sagaState.currentStep = 3;
         sagaState.status = SagaStatus.FLIGHT_RESERVED;
         await manager.save(SagaState, sagaState);
 
-        // Update booking status
-        await manager.update(Booking, { bookingReference: sagaState.bookingId }, { status: BookingStatus.PENDING });
+        // flight-service's fare is authoritative; clients never send a price.
+        await manager.update(
+          Booking,
+          { bookingReference: sagaState.bookingId },
+          {
+            status: BookingStatus.PENDING,
+            ...(typeof fare?.totalPrice === 'number' && { totalCost: fare.totalPrice }),
+          },
+        );
       });
 
-      this.logger.log('Step 3 completed: Flight reservation requested');
+      this.logger.log('Step 3 completed: Flight seats reserved');
       span.setStatus({ code: SpanStatusCode.OK });
     } catch (error) {
       span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
@@ -280,6 +311,10 @@ export class BookingSagaOrchestrator {
 
       if (!sagaState) {
         throw new Error('Saga state not found');
+      }
+
+      if (CANCELLED_SAGA_STATUSES.includes(sagaState.status)) {
+        throw new ConflictException(`Booking ${bookingId} is cancelled and cannot be completed`);
       }
 
       // Idempotency check
@@ -371,9 +406,34 @@ export class BookingSagaOrchestrator {
   }
 
   /**
-   * Compensation (Idempotent)
+   * flight-service could not reserve the seats (unknown flight, not enough seats). Cancel the booking without asking
+   * flight to release seats it never took. Idempotent: a duplicate rejection finds the saga already COMPENSATED.
    */
-  private async compensate(sagaState: SagaState, error: Error): Promise<void> {
+  async handleSeatReservationRejected(bookingId: string, reason: string): Promise<void> {
+    const sagaState = await this.sagaStateRepository.findOne({ where: { bookingId } });
+
+    if (!sagaState) {
+      this.logger.warn(`Seat reservation rejected for unknown booking ${bookingId}: ${reason}`);
+      return;
+    }
+
+    if (sagaState.status === SagaStatus.BOOKING_CONFIRMED) {
+      // Optimistic reservation: the booking was paid and confirmed before flight answered. It is cancelled below,
+      // but the captured payment is not refunded automatically.
+      this.logger.error(`Booking ${bookingId} was confirmed but flight rejected its seats; refund required: ${reason}`);
+    }
+
+    await this.compensate(sagaState, new Error(`Seat reservation rejected: ${reason}`), { flightSeatsReserved: false });
+  }
+
+  /**
+   * Compensation (Idempotent). Throws if it fails, so callers do not report a cancellation that did not happen.
+   */
+  private async compensate(
+    sagaState: SagaState,
+    error: Error,
+    options: { flightSeatsReserved?: boolean } = {},
+  ): Promise<void> {
     const span = this.tracer.startSpan('saga.compensate');
 
     try {
@@ -390,7 +450,7 @@ export class BookingSagaOrchestrator {
         await manager.save(SagaState, sagaState);
 
         // Compensate based on current step
-        if (sagaState.currentStep >= 3) {
+        if (options.flightSeatsReserved ?? sagaState.currentStep >= 3) {
           const dto = sagaState.payload as CreateBookingDto;
 
           const payload = {
@@ -427,6 +487,19 @@ export class BookingSagaOrchestrator {
           },
         );
 
+        // Notify the customer (same transaction; compensation exits early once COMPENSATED, so this fires once)
+        await this.outboxService.storeEvent(
+          'BOOKING',
+          sagaState.bookingId,
+          EventPatterns.BOOKING_CANCELLED,
+          {
+            bookingId: sagaState.bookingId,
+            userId: (sagaState.payload as CreateBookingDto).userId,
+            reason: error.message,
+          },
+          manager,
+        );
+
         // Mark saga as compensated
         sagaState.status = SagaStatus.COMPENSATED;
         await manager.save(SagaState, sagaState);
@@ -437,6 +510,7 @@ export class BookingSagaOrchestrator {
     } catch (compensationError) {
       this.logger.error('Compensation failed:', compensationError);
       span.setStatus({ code: SpanStatusCode.ERROR, message: compensationError.message });
+      throw compensationError;
     } finally {
       span.end();
     }

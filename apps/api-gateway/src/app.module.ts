@@ -11,6 +11,7 @@ import { CityController } from './controllers/city.controller';
 import { AirportController } from './controllers/airport.controller';
 import { AirplaneController } from './controllers/airplane.controller';
 import { SeatController } from './controllers/seat.controller';
+import { PaymentController } from './controllers/payment.controller';
 import { RolesGuard } from './guards/roles.guard';
 import {
   CookieService,
@@ -23,6 +24,8 @@ import {
   LoggingInterceptor,
   JwtAuthGuard,
   resolveRabbitMqUrl,
+  RPC_QUEUE_OPTIONS,
+  RpcQueue,
 } from '@app/common';
 import { WinstonModule } from 'nest-winston';
 import { TerminusModule } from '@nestjs/terminus';
@@ -64,15 +67,8 @@ import { RateLimiterModule } from '@app/rate-limiter';
           transport: Transport.RMQ,
           options: {
             urls: [resolveRabbitMqUrl(configService.get<string>('RABBITMQ_URL'))],
-            queue: 'auth_queue',
-            queueOptions: {
-              durable: true,
-              arguments: {
-                'x-dead-letter-exchange': '',
-                'x-dead-letter-routing-key': 'auth_queue_retry',
-                'x-max-length': 10000,
-              },
-            },
+            queue: RpcQueue.AUTH,
+            queueOptions: RPC_QUEUE_OPTIONS,
           },
         }),
         inject: [ConfigService],
@@ -84,15 +80,21 @@ import { RateLimiterModule } from '@app/rate-limiter';
           transport: Transport.RMQ,
           options: {
             urls: [resolveRabbitMqUrl(configService.get<string>('RABBITMQ_URL'))],
-            queue: 'flight_queue',
-            queueOptions: {
-              durable: true,
-              arguments: {
-                'x-dead-letter-exchange': '',
-                'x-dead-letter-routing-key': 'flight_queue_retry',
-                'x-max-length': 10000,
-              },
-            },
+            queue: RpcQueue.FLIGHT,
+            queueOptions: RPC_QUEUE_OPTIONS,
+          },
+        }),
+        inject: [ConfigService],
+      },
+      {
+        name: 'PAYMENT_SERVICE',
+        imports: [ConfigModule],
+        useFactory: (configService: ConfigService) => ({
+          transport: Transport.RMQ,
+          options: {
+            urls: [resolveRabbitMqUrl(configService.get<string>('RABBITMQ_URL'))],
+            queue: RpcQueue.PAYMENT,
+            queueOptions: RPC_QUEUE_OPTIONS,
           },
         }),
         inject: [ConfigService],
@@ -104,15 +106,8 @@ import { RateLimiterModule } from '@app/rate-limiter';
           transport: Transport.RMQ,
           options: {
             urls: [resolveRabbitMqUrl(configService.get<string>('RABBITMQ_URL'))],
-            queue: 'booking_queue',
-            queueOptions: {
-              durable: true,
-              arguments: {
-                'x-dead-letter-exchange': '',
-                'x-dead-letter-routing-key': 'booking_queue_retry',
-                'x-max-length': 10000,
-              },
-            },
+            queue: RpcQueue.BOOKING,
+            queueOptions: RPC_QUEUE_OPTIONS,
           },
         }),
         inject: [ConfigService],
@@ -129,6 +124,7 @@ import { RateLimiterModule } from '@app/rate-limiter';
     AirportController,
     AirplaneController,
     SeatController,
+    PaymentController,
     GatewayHealthController,
   ],
   providers: [

@@ -2,7 +2,17 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DatabaseModule } from '@app/database';
-import { HealthModule, CommonModule, GlobalExceptionFilter, winstonLoggerConfig } from '@app/common';
+import {
+  HealthModule,
+  CommonModule,
+  GlobalExceptionFilter,
+  winstonLoggerConfig,
+  resolveRabbitMqUrl,
+  RPC_QUEUE_OPTIONS,
+  RpcQueue,
+} from '@app/common';
+import { ClientsModule, Transport } from '@nestjs/microservices';
+import { ConfigService } from '@nestjs/config';
 import { WinstonModule } from 'nest-winston';
 import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { RabbitMQModule } from '@golevelup/nestjs-rabbitmq';
@@ -14,9 +24,10 @@ import { OutboxEvent } from './entities/outbox-event.entity';
 import { LoggingInterceptor } from '@app/common';
 import { BookingController } from './booking/booking.controller';
 import { BookingPaymentHandler } from './booking/booking-payment.handler';
+import { BookingFlightHandler } from './booking/booking-flight.handler';
 import { BookingCleanupService } from './booking/booking-cleanup.service';
 import { BookingService } from './booking/booking.service';
-import { BookingSagaOrchestrator } from './booking-saga/saga-orchestrator.service';
+import { BookingSagaOrchestrator, FLIGHT_CLIENT } from './booking-saga/saga-orchestrator.service';
 import { OutboxService } from './outbox/outbox.service';
 import { BookingRepository } from './repositories/booking.repository';
 import { SeatLockService } from '@app/seat-lock';
@@ -37,6 +48,20 @@ import { paymentProviders } from './payment/payment.providers';
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
     RabbitMQModule.forRoot(rabbitmqConfig),
+    ClientsModule.registerAsync([
+      {
+        name: FLIGHT_CLIENT,
+        inject: [ConfigService],
+        useFactory: (configService: ConfigService) => ({
+          transport: Transport.RMQ,
+          options: {
+            urls: [resolveRabbitMqUrl(configService.get<string>('RABBITMQ_URL'))],
+            queue: RpcQueue.FLIGHT,
+            queueOptions: RPC_QUEUE_OPTIONS,
+          },
+        }),
+      },
+    ]),
   ],
   controllers: [BookingController],
   providers: [
@@ -49,6 +74,7 @@ import { paymentProviders } from './payment/payment.providers';
       useClass: GlobalExceptionFilter,
     },
     BookingPaymentHandler,
+    BookingFlightHandler,
     BookingCleanupService,
     BookingService,
     BookingSagaOrchestrator,

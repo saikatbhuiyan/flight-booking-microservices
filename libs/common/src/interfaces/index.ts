@@ -93,6 +93,15 @@ export interface IUser {
   isActive: boolean;
 }
 
+/** user.findById reply: what other services may know about a user to contact them (no credentials). */
+export interface UserContact {
+  id: number;
+  email: string;
+  firstName: string;
+  /** From the user's notification settings; true when they have none. */
+  emailEnabled: boolean;
+}
+
 // JWT Payload
 export interface IJwtPayload {
   sub: string;
@@ -125,6 +134,7 @@ export enum MessagePatterns {
   FLIGHT_SEARCH = 'flight.search.v2',
   FLIGHT_UPDATE = 'flight.update',
   FLIGHT_DELETE = 'flight.delete',
+  FLIGHT_RESERVE_SEATS = 'flight.reserveSeats',
 
   // City patterns
   CITY_CREATE = 'city.create',
@@ -133,6 +143,8 @@ export enum MessagePatterns {
   CITY_UPDATE = 'city.update',
   CITY_DELETE = 'city.delete',
   CITY_STATISTICS = 'city.statistics',
+  CITY_FIND_ALL_WITH_AIRPORT_COUNT = 'city.findAllWithAirportCount',
+  CITY_RESTORE = 'city.restore',
 
   // Airport patterns
   AIRPORT_CREATE = 'airport.create',
@@ -141,6 +153,7 @@ export enum MessagePatterns {
   AIRPORT_SEARCH = 'airport.search',
   AIRPORT_UPDATE = 'airport.update',
   AIRPORT_DELETE = 'airport.delete',
+  AIRPORT_STATISTICS = 'airport.statistics',
 
   // Airplane patterns
   AIRPLANE_CREATE = 'airplane.create',
@@ -176,9 +189,11 @@ export enum MessagePatterns {
   // Payment patterns
   PAYMENT_CREATE_INTENT = 'payment.create_intent',
   PAYMENT_GET_INTENT = 'payment.get_intent',
+  PAYMENT_GET_INTENT_BY_BOOKING = 'payment.get_intent_by_booking',
   PAYMENT_CONFIRM_INTENT = 'payment.confirm_intent',
   PAYMENT_CREATE_REFUND = 'payment.create_refund',
   PAYMENT_GET_REFUNDS = 'payment.get_refunds',
+  PAYMENT_GET_LEDGER_ENTRIES = 'payment.get_ledger_entries',
 }
 
 // Events for async communication
@@ -197,6 +212,7 @@ export enum EventPatterns {
   FLIGHT_RESERVE_SEATS = 'flight.reserve-seats',
   FLIGHT_CONFIRM_SEATS = 'flight.confirm-seats',
   FLIGHT_RELEASE_SEATS = 'flight.release-seats',
+  FLIGHT_SEATS_RESERVATION_FAILED = 'flight.seats-reservation-failed',
 }
 
 export interface ActiveUserData {

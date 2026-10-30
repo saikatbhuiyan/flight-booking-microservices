@@ -185,14 +185,20 @@ describe('AuthController', () => {
     authClient.send.mockReturnValue(of(undefined));
 
     await expect(
-      controller.logout(response, {
-        userId: 42,
-        deviceId: 'device-1',
-        clientType: ClientType.WEB,
-      }),
+      controller.logout(response, { deviceId: 'device-1', clientType: ClientType.WEB }, { id: 42 }),
     ).resolves.toEqual(ApiResponseDto.success(null, 'auth.logout.success'));
 
     expect(cookieService.clearAuthCookies).toHaveBeenCalledWith(response, 'device-1');
+  });
+
+  it('signs out the authenticated user, ignoring any userId smuggled into the body', async () => {
+    authClient.send.mockReturnValue(of(undefined));
+
+    await controller.logout({} as never, { deviceId: 'device-1', clientType: ClientType.MOBILE, userId: 7 } as never, {
+      id: 42,
+    });
+
+    expect(authClient.send).toHaveBeenCalledWith(MP.AUTH_SIGNOUT, expect.objectContaining({ userId: 42 }));
   });
 
   it('returns the authenticated profile in the standard response shape', () => {

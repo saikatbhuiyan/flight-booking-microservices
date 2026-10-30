@@ -176,13 +176,19 @@ This keeps the service ready for downstream settlement, revenue recognition, and
 
 ## API Surface
 
-- `POST /payment-intents`
-- `POST /payment-intents/:id/confirm`
-- `GET /payment-intents/:id`
-- `GET /payment-intents/booking/:bookingId`
-- `GET /payment-intents/ledger/entries`
-- `POST /refunds`
-- `GET /refunds?bookingId=...`
+Public routes are served by the API gateway (`/api/v1`, JWT required). Non-owners get `404`.
+
+- `GET /payments/:id` — owner or admin
+- `POST /payments/:id/confirm` — owner or admin, optional `idempotency-key` header
+- `GET /payments/booking/:bookingId` — owner or admin
+- `GET /payments/booking/:bookingId/refunds` — owner or admin
+- `POST /payments/refunds` — admin, optional `idempotency-key` header
+- `GET /payments/ledger/entries` — admin
+
+Payment intents are created only by `booking-service` (RPC `payment.create_intent`); there is no public create route.
+
+payment-service itself serves only the provider webhooks over HTTP:
+
 - `POST /webhooks/stripe`
 - `POST /webhooks/paypal`
 

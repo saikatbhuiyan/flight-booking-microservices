@@ -26,7 +26,7 @@ import {
 } from '@app/common';
 import type { Request, Response } from 'express';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { SignUpDto as RegisterDto, SignInDto, RefreshTokenDto, SignOutDto } from '@app/common';
+import { SignUpDto as RegisterDto, SignInDto, RefreshTokenDto, LogoutRequestDto, SignOutDto } from '@app/common';
 import { RateLimit } from '@app/rate-limiter';
 
 interface AuthTokens {
@@ -147,8 +147,13 @@ export class AuthController {
     type: ApiResponseDto,
   })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
-  async logout(@Res({ passthrough: true }) res: Response, @Body() payload: SignOutDto) {
-    const { clientType = ClientType.WEB, deviceId } = payload;
+  async logout(
+    @Res({ passthrough: true }) res: Response,
+    @Body() body: LogoutRequestDto,
+    @CurrentUser() user: { id: number },
+  ) {
+    const { clientType = ClientType.WEB, deviceId } = body;
+    const payload: SignOutDto = { ...body, userId: user.id };
     await this.callService(MP.AUTH_SIGNOUT, payload);
 
     if (clientType === ClientType.WEB) {

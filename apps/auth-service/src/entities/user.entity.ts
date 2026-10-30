@@ -1,5 +1,6 @@
 import { Exclude } from 'class-transformer';
 import { Entity, PrimaryGeneratedColumn, Column, Unique, OneToOne } from 'typeorm';
+import { Role } from '@app/common';
 import { NotificationSettings } from './notification-settings.entity';
 
 @Entity('users')
@@ -30,6 +31,10 @@ export class User {
 
   @Column({ nullable: true })
   lastLoginIp: string;
+
+  /** Authoritative role; the gateway reads it via auth.validate on every request. Promote admins out of band. */
+  @Column({ type: 'enum', enum: Role, default: Role.USER })
+  role: Role;
 
   @Column({ default: true })
   isActive: boolean;

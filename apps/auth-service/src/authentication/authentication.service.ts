@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { HashingService } from '../hashing/hashing.service';
@@ -9,7 +9,7 @@ import { RefreshTokenIdsStorage } from './refresh-token-ids.storage';
 import { RefreshTokenBlacklist } from './refresh-token-black-list.storage';
 import { AuthAuditService } from './auth-audit.service';
 import { SignInDto, SignOutDto, RefreshTokenDto, SignUpDto } from '@app/common';
-import { Role, InvalidateRefreshTokenError } from '@app/common';
+import { Role, InvalidateRefreshTokenError, UserContact } from '@app/common';
 import { User } from '../entities/user.entity';
 import { JwtSignOptions, JwtVerifyOptions } from '@nestjs/jwt';
 
@@ -37,7 +37,13 @@ export class AuthenticationService {
       throw exception;
     }
 
-    const user = this.usersRepository.create(registerDto);
+    // Explicit fields: the RMQ payload is not validated, so never let it set role/isActive/isLocked.
+    const user = this.usersRepository.create({
+      firstName: registerDto.firstName,
+      lastName: registerDto.lastName,
+      email: registerDto.email,
+      role: Role.USER,
+    });
     user.password = await this.hashingService.hash(registerDto.password);
     await this.usersRepository.save(user);
 
@@ -82,7 +88,8 @@ export class AuthenticationService {
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(
-        { id: user.id, email: user.email, roles: [Role.ADMIN] },
+        // No role claim: roles are resolved from the database in validateUser on every request.
+        { id: user.id, email: user.email },
         {
           secret: this.configService.get<string>('jwt.secret'),
           expiresIn: this.configService.get<number>('jwt.accessTokenTtl'),
@@ -173,6 +180,11 @@ export class AuthenticationService {
    * Validate user for JWT guard
    */
   async validateUser(payload: any) {
+    // TypeORM drops undefined where-values, so a missing id would otherwise match on email alone.
+    if (!payload?.id) {
+      throw this.createUnauthorizedException('Unauthorized', 'auth.unauthorized');
+    }
+
     const user = await this.usersRepository.findOne({
       where: { id: payload.id, email: payload.email },
     });
@@ -186,7 +198,22 @@ export class AuthenticationService {
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName,
-      roles: [Role.USER],
+      role: user.role,
+    };
+  }
+
+  /** Contact details for other services (notifications). Never exposes credentials. */
+  async getContact(id: number): Promise<UserContact> {
+    const user = await this.usersRepository.findOne({ where: { id }, relations: { notificationSettings: true } });
+    if (!user) {
+      throw new NotFoundException(`User ${id} not found`);
+    }
+
+    return {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      emailEnabled: user.notificationSettings?.emailEnabled ?? true,
     };
   }
 

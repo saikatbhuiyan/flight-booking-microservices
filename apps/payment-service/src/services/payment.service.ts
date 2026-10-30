@@ -2,7 +2,7 @@ import { ConflictException, Injectable, Logger, NotFoundException } from '@nestj
 import { InjectRepository } from '@nestjs/typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
-import { EventPatterns } from '@app/common';
+import { ConfirmPaymentIntentDto, EventPatterns, QueryLedgerEntriesDto } from '@app/common';
 import { DataSource, FindOptionsWhere, MoreThanOrEqual, Repository } from 'typeorm';
 import { createHash, randomUUID } from 'crypto';
 import { Payment, PaymentStatus } from '../entities/payment.entity';
@@ -11,8 +11,6 @@ import { LedgerDirection, LedgerEntry, LedgerEntryType } from '../entities/ledge
 import { PaymentAuditLog, AuditAction } from '../entities/payment-audit-log.entity';
 import { PaymentGatewayFactory } from '../gateways/gateway.factory';
 import { CreatePaymentIntentDto } from '../dto/create-payment-intent.dto';
-import { ConfirmPaymentIntentDto } from '../dto/confirm-payment-intent.dto';
-import { QueryLedgerEntriesDto } from '../dto/query-ledger-entries.dto';
 import { Refund, RefundStatus } from '../entities/refund.entity';
 
 type IdempotencyResolution<T> = {
@@ -229,6 +227,8 @@ export class PaymentService {
 
         if (confirmationEvent.success) {
           await this.publishPaymentCompletedEvent(payment, confirmationEvent.gatewayTransactionId);
+        } else {
+          await this.publishPaymentFailedEvent(payment, confirmationEvent.errorMessage);
         }
       }
 
@@ -266,6 +266,8 @@ export class PaymentService {
       userId: savedPayment.userId,
       changes: { source: 'webhook', failureReason: reason },
     });
+
+    await this.publishPaymentFailedEvent(savedPayment, savedPayment.failureReason);
 
     return savedPayment;
   }
@@ -324,6 +326,18 @@ export class PaymentService {
       gatewayTransactionId: gatewayTransactionId || fallbackTransactionId,
       status: payment.status,
       confirmedAt: payment.confirmedAt?.toISOString() || null,
+    });
+  }
+
+  private async publishPaymentFailedEvent(payment: Payment, failureReason?: string | null): Promise<void> {
+    await this.amqpConnection.publish('payment.events', EventPatterns.PAYMENT_FAILED, {
+      paymentId: payment.id,
+      bookingId: payment.bookingId,
+      bookingReference: this.getBookingReference(payment),
+      userId: payment.userId,
+      amount: payment.amount,
+      currency: payment.currency,
+      failureReason: failureReason || null,
     });
   }
 

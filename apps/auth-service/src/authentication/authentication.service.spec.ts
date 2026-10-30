@@ -3,7 +3,7 @@ jest.mock('uuid', () => ({
   v4: jest.fn(() => 'mock-uuid'),
 }));
 
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -46,6 +46,7 @@ describe('AuthenticationService', () => {
     googleId: undefined,
     lastLoginAt: undefined,
     lastLoginIp: undefined,
+    role: Role.USER,
     isActive: true,
     isLocked: false,
     notificationSettings: undefined,
@@ -145,8 +146,31 @@ describe('AuthenticationService', () => {
       });
 
       expect(hashingService.hash).toHaveBeenCalledWith('Password123!');
-      expect(usersRepository.create).toHaveBeenCalledWith(dto);
+      expect(usersRepository.create).toHaveBeenCalledWith({
+        firstName: 'Jane',
+        lastName: 'Doe',
+        email: 'jane@example.com',
+        role: Role.USER,
+      });
       expect(usersRepository.save).toHaveBeenCalledWith(expect.objectContaining({ password: 'hashed-password' }));
+    });
+
+    it('ignores privileged fields smuggled into the payload', async () => {
+      const dto = {
+        firstName: 'Mallory',
+        email: 'mallory@example.com',
+        password: 'Password123!',
+        role: Role.ADMIN,
+        isActive: true,
+      } as SignUpDto;
+      usersRepository.findOne.mockResolvedValue(null);
+      usersRepository.create.mockReturnValue(createUser({ email: dto.email }));
+      hashingService.hash.mockResolvedValue('hashed-password');
+
+      await service.register(dto);
+
+      expect(usersRepository.create).toHaveBeenCalledWith(expect.objectContaining({ role: Role.USER }));
+      expect(usersRepository.create).toHaveBeenCalledWith(expect.not.objectContaining({ isActive: expect.anything() }));
     });
 
     it('rejects duplicate registrations', async () => {
@@ -213,7 +237,7 @@ describe('AuthenticationService', () => {
 
       expect(jwtService.signAsync).toHaveBeenNthCalledWith(
         1,
-        { id: 42, email: 'jane@example.com', roles: [Role.ADMIN] },
+        { id: 42, email: 'jane@example.com' },
         { secret: 'access-secret', expiresIn: 900 },
       );
       expect(jwtService.signAsync).toHaveBeenNthCalledWith(
@@ -337,22 +361,54 @@ describe('AuthenticationService', () => {
   });
 
   describe('validateUser', () => {
-    it('returns the active user profile expected by guards', async () => {
-      usersRepository.findOne.mockResolvedValue(createUser());
+    it('returns the active user profile with the role stored on the user', async () => {
+      usersRepository.findOne.mockResolvedValue(createUser({ role: Role.ADMIN }));
 
       await expect(service.validateUser({ id: 42, email: 'jane@example.com' })).resolves.toEqual({
         id: 42,
         email: 'jane@example.com',
         firstName: 'Jane',
         lastName: 'Doe',
-        roles: [Role.USER],
+        role: Role.ADMIN,
       });
+    });
+
+    it('rejects token payloads without a user id instead of matching on email alone', async () => {
+      await expect(service.validateUser({ email: 'jane@example.com' })).rejects.toThrow(UnauthorizedException);
+      expect(usersRepository.findOne).not.toHaveBeenCalled();
     });
 
     it('rejects inactive users', async () => {
       usersRepository.findOne.mockResolvedValue(createUser({ isActive: false }));
 
       await expect(service.validateUser({ id: 42, email: 'jane@example.com' })).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe('getContact', () => {
+    it('returns contact details without credentials, honoring the email opt-out', async () => {
+      usersRepository.findOne.mockResolvedValue(
+        createUser({ notificationSettings: { emailEnabled: false } as never, password: 'hash', googleId: 'g' }),
+      );
+
+      await expect(service.getContact(42)).resolves.toEqual({
+        id: 42,
+        email: 'jane@example.com',
+        firstName: 'Jane',
+        emailEnabled: false,
+      });
+    });
+
+    it('defaults to email enabled when the user has no notification settings', async () => {
+      usersRepository.findOne.mockResolvedValue(createUser());
+
+      await expect(service.getContact(42)).resolves.toMatchObject({ emailEnabled: true });
+    });
+
+    it('throws NotFound for an unknown user', async () => {
+      usersRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.getContact(7)).rejects.toThrow(NotFoundException);
     });
   });
 });
